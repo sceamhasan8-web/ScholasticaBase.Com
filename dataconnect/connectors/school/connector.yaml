@@ -1,0 +1,5 @@
+connectorId: "school"
+generate:
+  javascriptSdk:
+    outputDir: "../../src/dataconnect-generated"
+    package: "@school/dataconnect-generated"

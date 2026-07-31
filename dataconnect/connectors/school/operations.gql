@@ -1,0 +1,136 @@
+# Queries and mutations for the school Firebase Data Connect SQL schema.
+
+query ListUsers @auth(level: USER) {
+  users(orderBy: { name: ASC }) {
+    id
+    name
+    email
+    role
+    phoneNumber
+    profilePictureUrl
+  }
+}
+
+query ListClassrooms @auth(level: USER) {
+  classrooms(orderBy: { name: ASC }) {
+    id
+    name
+    section
+    headTeacher {
+      id
+      name
+      email
+      role
+    }
+  }
+}
+
+query ListSubjects @auth(level: USER) {
+  subjects(orderBy: { name: ASC }) {
+    id
+    name
+  }
+}
+
+query ListRoutineByClassroom($classroomId: UUID!) @auth(level: USER) {
+  routines(where: { classroomId: { eq: $classroomId } }, orderBy: [{ dayOfWeek: ASC }, { startTime: ASC }]) {
+    id
+    dayOfWeek
+    startTime
+    endTime
+    classroom {
+      id
+      name
+      section
+    }
+    subject {
+      id
+      name
+    }
+    teacher {
+      id
+      name
+      email
+    }
+  }
+}
+
+query GetStudentExamResults($studentId: UUID!) @auth(level: USER) {
+  examResults(where: { studentId: { eq: $studentId } }, orderBy: { examDate: DESC }) {
+    id
+    marksObtained
+    totalMarks
+    examDate
+    student {
+      id
+      name
+      email
+    }
+    subject {
+      id
+      name
+    }
+  }
+}
+
+mutation CreateUser(
+  $name: String!
+  $email: String!
+  $role: String!
+  $phoneNumber: String
+  $profilePictureUrl: String
+) @auth(level: USER) {
+  user_insert(data: {
+    name: $name
+    email: $email
+    role: $role
+    phoneNumber: $phoneNumber
+    profilePictureUrl: $profilePictureUrl
+  })
+}
+
+mutation CreateClassroom($name: String!, $section: String!, $headTeacherId: UUID) @auth(level: USER) {
+  classroom_insert(data: {
+    name: $name
+    section: $section
+    headTeacherId: $headTeacherId
+  })
+}
+
+mutation CreateSubject($name: String!) @auth(level: USER) {
+  subject_insert(data: { name: $name })
+}
+
+mutation CreateRoutine(
+  $dayOfWeek: String!
+  $startTime: String!
+  $endTime: String!
+  $classroomId: UUID!
+  $subjectId: UUID!
+  $teacherId: UUID!
+) @auth(level: USER) {
+  routine_insert(data: {
+    dayOfWeek: $dayOfWeek
+    startTime: $startTime
+    endTime: $endTime
+    classroomId: $classroomId
+    subjectId: $subjectId
+    teacherId: $teacherId
+  })
+}
+
+mutation CreateExamResult(
+  $marksObtained: Float!
+  $totalMarks: Float!
+  $examDate: Date!
+  $studentId: UUID!
+  $subjectId: UUID!
+) @auth(level: USER) {
+  examResult_insert(data: {
+    marksObtained: $marksObtained
+    totalMarks: $totalMarks
+    examDate: $examDate
+    studentId: $studentId
+    subjectId: $subjectId
+  })
+}

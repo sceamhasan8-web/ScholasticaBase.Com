@@ -1,0 +1,10 @@
+# Firebase Data Connect service configuration.
+# Replace connectorId/serviceId/location if your Firebase Data Connect setup uses different names.
+
+specVersion: "v1"
+serviceId: "school-service"
+location: "asia-south1"
+schema:
+  source: "./schema"
+connectorDirs:
+  - "./connectors"

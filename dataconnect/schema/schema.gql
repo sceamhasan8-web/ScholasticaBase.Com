@@ -1,0 +1,37 @@
+# Firebase Data Connect schema for the school app.
+# Deploy with Firebase Data Connect after connecting a Cloud SQL PostgreSQL instance.
+
+type User @table {
+  name: String!
+  email: String! @unique
+  role: String!
+  phoneNumber: String
+  profilePictureUrl: String
+}
+
+type Classroom @table {
+  name: String!
+  section: String!
+  headTeacher: User
+}
+
+type Subject @table {
+  name: String! @unique
+}
+
+type Routine @table {
+  dayOfWeek: String!
+  startTime: String!
+  endTime: String!
+  classroom: Classroom!
+  subject: Subject!
+  teacher: User!
+}
+
+type ExamResult @table {
+  marksObtained: Float!
+  totalMarks: Float!
+  examDate: Date!
+  student: User!
+  subject: Subject!
+}
