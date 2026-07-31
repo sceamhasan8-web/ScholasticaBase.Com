@@ -51,8 +51,6 @@ export default function StudentFeeConfigModal({
   className = '',
   onSave = null,
 }) {
-  if (!isOpen) return null;
-
   const targetClass = student?.className || className || 'Class One';
   const studentId = student?.id || student?.userId || 'STU-DEFAULT';
   const studentName = student?.name || 'Student';
@@ -104,6 +102,8 @@ export default function StudentFeeConfigModal({
       grandTotalOutstanding,
     };
   }, [classMonthlyFee, unpaidMonths, otherFees]);
+
+  if (!isOpen) return null;
 
   // Handle Class Monthly Fee Save
   const handleSaveClassRate = () => {

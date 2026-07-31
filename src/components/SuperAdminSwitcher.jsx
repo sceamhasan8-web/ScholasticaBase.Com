@@ -63,10 +63,6 @@ export default function SuperAdminSwitcher() {
   const currentUser = user || (typeof window !== 'undefined' ? JSON.parse(window.localStorage.getItem('schoolAppCurrentUser') || 'null') : null);
   const isAuthorized = canSwitch || isSuperAdmin || (currentUser && (currentUser.role === 'admin' || currentUser.isSuperAdmin || currentUser._realUser?.role === 'admin'));
 
-  if (!currentUser || !isAuthorized) {
-    return null;
-  }
-
   // Active mode details
   const activeModeObj = VIEW_MODES.find((m) => m.key === viewMode) || VIEW_MODES[0];
 
@@ -146,6 +142,10 @@ export default function SuperAdminSwitcher() {
       )
       .slice(0, 15);
   }, [allAccounts, searchQuery]);
+
+  if (!currentUser || !isAuthorized) {
+    return null;
+  }
 
   const handlePanelSwitch = (modeKey) => {
     setViewMode(modeKey);
