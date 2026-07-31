@@ -1,0 +1,1910 @@
+/* ═══════════════════════════════════════════════════════════════
+   SCHOLASTICBASE — COMPREHENSIVE MOBILE & TABLET RESPONSIVE CSS
+   Covers: Login, Hero, Navbar, Drawers, Bottom Nav, ExamResult,
+           RoutineView, AdminDashboard, TeacherPanel, StudentView
+   Breakpoints: 480px | 600px | 768px | 900px | 1024px | 1200px
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────
+   1. GLOBAL MOBILE RESET
+   ───────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+img,
+svg,
+video,
+canvas,
+iframe {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+input,
+select,
+textarea,
+button,
+a {
+  max-width: 100%;
+  font-family: inherit;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+/* Prevent long words/URLs from breaking layout */
+p,
+span,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+td,
+th,
+li,
+label {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* ─────────────────────────────────────
+   2. SAFE AREA & SCROLL IMPROVEMENTS
+   ───────────────────────────────────── */
+.tp-shell {
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+.tp-main {
+  min-width: 0;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+/* Smooth momentum scrolling on iOS */
+.tp-modal-body,
+.es-body,
+.tp-drawer,
+.sv-content-area,
+.mark-sheet-mode {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ─────────────────────────────────────
+   3. LOGIN PAGE — ALL SCREENS
+   ───────────────────────────────────── */
+.login-page-container {
+  min-height: 100dvh;
+  padding: clamp(88px, 12vh, 136px) clamp(12px, 4vw, 32px) 40px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: clamp(12px, 2.5vw, 28px) clamp(16px, 5vw, 64px);
+  z-index: 20;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 60%, rgba(255, 255, 255, 0));
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.login-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.login-logo {
+  height: clamp(34px, 6vw, 48px);
+  width: auto;
+  flex-shrink: 0;
+}
+
+.login-school-name {
+  font-size: clamp(14px, 2.2vw, 20px);
+  white-space: normal;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.login-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.login-portal-title {
+  font-size: clamp(13px, 2vw, 20px);
+  margin: 0 0 4px;
+}
+
+.login-header-links {
+  font-size: clamp(11px, 1.5vw, 13px);
+  white-space: nowrap;
+}
+
+.login-card {
+  width: min(100%, 440px);
+  padding: clamp(22px, 5vw, 40px) clamp(18px, 5vw, 40px);
+  border-radius: clamp(18px, 4vw, 28px);
+  position: relative;
+  z-index: 5;
+}
+
+.login-card-title {
+  font-size: clamp(18px, 4vw, 22px);
+}
+
+.login-input {
+  min-height: 46px;
+}
+
+.login-role-row {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.login-options-row {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Tablet: 600-900px */
+@media (min-width: 600px) and (max-width: 900px) {
+  .login-page-container {
+    padding-top: 100px;
+  }
+
+  .login-card {
+    width: min(92%, 440px);
+  }
+}
+
+/* Mobile: ≤600px */
+@media (max-width: 600px) {
+  .login-page-container {
+    align-items: flex-start;
+    padding-top: 110px;
+  }
+
+  .login-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px 16px 20px;
+    gap: 6px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 80%, rgba(255, 255, 255, 0));
+  }
+
+  .login-header-right {
+    align-items: flex-start;
+  }
+
+  .login-header-links span {
+    margin: 0 5px;
+  }
+
+  .login-card {
+    width: 100%;
+    padding: 24px 18px;
+    border-radius: 22px;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, .2);
+  }
+
+  .login-role-option {
+    flex: 1 1 45%;
+  }
+
+  .login-options-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .login-submit-btn {
+    font-size: 15px;
+    padding: 15px 24px;
+  }
+}
+
+/* Very small: ≤380px */
+@media (max-width: 380px) {
+  .login-page-container {
+    padding-top: 120px;
+  }
+
+  .login-header {
+    padding: 10px 14px 18px;
+  }
+
+  .login-school-name,
+  .login-portal-title {
+    font-size: 13px;
+  }
+
+  .login-role-option {
+    flex: 1 1 100%;
+  }
+}
+
+/* ─────────────────────────────────────
+   4. TOPBAR / NAVBAR — ALL ROLES
+   ───────────────────────────────────── */
+
+/* Mobile topbar — display as grid row */
+@media (max-width: 900px) {
+  .tp-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 70;
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: clamp(8px, 2vw, 16px);
+    padding: 10px clamp(12px, 4vw, 20px) !important;
+    min-height: 66px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(239, 246, 255, 0.93)) !important;
+    border-bottom: 1px solid rgba(191, 219, 254, 0.82) !important;
+    box-shadow: 0 12px 32px rgba(30, 58, 138, .1) !important;
+    backdrop-filter: blur(18px) saturate(1.3);
+    -webkit-backdrop-filter: blur(18px) saturate(1.3);
+    margin-bottom: 0;
+  }
+
+  .tp-topbar-greeting {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .tp-topbar-greeting h2 {
+    font-size: clamp(17px, 4.5vw, 24px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 900;
+    letter-spacing: -.03em;
+    margin: 0;
+  }
+
+  .tp-topbar-greeting p {
+    font-size: clamp(10px, 2vw, 12px);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tp-topbar-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .tp-hamburger {
+    display: inline-flex !important;
+    width: clamp(40px, 6vw, 48px);
+    height: clamp(40px, 6vw, 48px);
+    border-radius: 15px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #eff6ff, #dbeafe) !important;
+    border: 1px solid rgba(147, 197, 253, 0.7) !important;
+    color: #1d4ed8 !important;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, .16);
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+
+  .tp-hamburger:active {
+    transform: scale(.95);
+  }
+
+  .tp-icon-btn {
+    width: clamp(38px, 6vw, 48px) !important;
+    height: clamp(38px, 6vw, 48px) !important;
+    border-radius: 14px !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    border: 1px solid rgba(147, 197, 253, 0.7) !important;
+    color: #1d4ed8 !important;
+    flex-shrink: 0;
+  }
+
+  .tp-bell-dot {
+    top: 7px !important;
+    right: 7px !important;
+  }
+}
+
+/* Tablet topbar refinement */
+@media (min-width: 601px) and (max-width: 900px) {
+  .tp-topbar {
+    min-height: 76px;
+    border-radius: 0 0 24px 24px;
+    padding: 12px clamp(16px, 3vw, 28px) !important;
+  }
+
+  .tp-topbar-greeting h2 {
+    font-size: clamp(20px, 3.5vw, 26px);
+  }
+}
+
+/* Desktop: hide hamburger, show sidebar */
+@media (min-width: 901px) {
+  .tp-hamburger {
+    display: none !important;
+  }
+
+  .tp-bottom-nav {
+    display: none !important;
+  }
+}
+
+/* ─────────────────────────────────────
+   5. HERO SECTION — TEACHER/STUDENT
+   ───────────────────────────────────── */
+@media (max-width: 900px) {
+
+  .tp-hero,
+  .tp-hero-pro {
+    grid-template-columns: 1fr !important;
+    padding: clamp(16px, 4vw, 24px) !important;
+    gap: 16px;
+    margin: 12px 0 0 !important;
+  }
+
+  .tp-hero-pro {
+    border-radius: 24px;
+  }
+
+  .tp-greeting {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tp-greeting h1 {
+    font-size: clamp(26px, 7vw, 38px) !important;
+    line-height: 1.05;
+    letter-spacing: -.04em;
+  }
+
+  .tp-greeting p {
+    font-size: clamp(13px, 2.5vw, 15px);
+  }
+
+  .tp-school-brand {
+    display: none;
+  }
+
+  .tp-silhouette-wrap {
+    display: none;
+  }
+
+  .tp-notification-menu {
+    display: flex !important;
+    flex-direction: column;
+    width: 100%;
+    padding: clamp(12px, 3vw, 18px);
+  }
+
+  .tp-notification-bar {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .tp-quick-menu {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .tp-menu-icon-btn {
+    width: 100%;
+    height: 50px;
+    border-radius: 16px;
+  }
+}
+
+/* Tablet hero */
+@media (min-width: 601px) and (max-width: 900px) {
+  .tp-notification-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tp-hero-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+/* Mobile hero */
+@media (max-width: 600px) {
+  .tp-greeting h1 {
+    font-size: clamp(24px, 9vw, 34px) !important;
+  }
+
+  .tp-notification-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .tp-quick-menu {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tp-hero-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .tp-hero-stats span {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 8px 6px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 380px) {
+  .tp-hero-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .tp-quick-menu {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ─────────────────────────────────────
+   6. SIDEBAR — DESKTOP ONLY
+   ───────────────────────────────────── */
+@media (min-width: 901px) {
+  .tp-sidebar {
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    overflow: hidden auto;
+    width: clamp(220px, 18vw, 280px);
+    flex-shrink: 0;
+    background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+    border-right: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 14px 0 40px rgba(15, 23, 42, .06);
+    padding: 28px 18px;
+    z-index: 50;
+  }
+
+  .tp-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+    margin-bottom: 18px;
+  }
+
+  .tp-sidebar-crest {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
+  .tp-sidebar-school {
+    font-size: clamp(13px, 1vw, 15px);
+    font-weight: 800;
+    color: #1a2e4a;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+
+  .tp-sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+  }
+
+  .tp-sidebar-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 11px 13px;
+    border-radius: 14px;
+    border: none;
+    background: none;
+    font-size: 14px;
+    font-weight: 600;
+    color: #5a7292;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    transition: all .16s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tp-sidebar-nav-item:hover {
+    background: linear-gradient(135deg, #eff6ff, #e0f2fe);
+    color: #1d4ed8;
+    transform: translateX(3px);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, .1);
+  }
+
+  .tp-sidebar-nav-item.active {
+    background: linear-gradient(135deg, #2563eb, #38bdf8);
+    color: #fff;
+    box-shadow: 0 12px 28px rgba(37, 99, 235, .24);
+    font-weight: 700;
+  }
+
+  .tp-sidebar-divider {
+    height: 1px;
+    background: rgba(226, 232, 240, 0.85);
+    margin: 14px 0;
+  }
+
+  .tp-sidebar-signout {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 13px;
+    border-radius: 14px;
+    border: none;
+    background: none;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ef4444;
+    cursor: pointer;
+    width: 100%;
+    transition: background .15s;
+  }
+
+  .tp-sidebar-signout:hover {
+    background: #fef2f2;
+  }
+}
+
+@media (max-width: 900px) {
+  .tp-sidebar {
+    display: none !important;
+  }
+}
+
+/* ─────────────────────────────────────
+   7. MOBILE DRAWER
+   ───────────────────────────────────── */
+@media (max-width: 900px) {
+  .tp-drawer-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    background: rgba(15, 23, 42, .62);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: stretch;
+  }
+
+  .tp-drawer {
+    width: min(86vw, 340px);
+    max-width: 340px;
+    height: 100dvh;
+    background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+    border-radius: 0 28px 28px 0;
+    border-right: 1px solid rgba(191, 219, 254, .8);
+    box-shadow: 22px 0 54px rgba(15, 23, 42, .3);
+    padding: 20px 16px calc(22px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden auto;
+    animation: drawerSlideIn .22s cubic-bezier(.16, 1, .3, 1);
+  }
+
+  @keyframes drawerSlideIn {
+    from {
+      opacity: .7;
+      transform: translateX(-20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .tp-drawer-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 12px;
+  }
+
+  .tp-drawer-label {
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    margin: 16px 0 4px;
+  }
+
+  .tp-drawer-name {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0;
+  }
+
+  .tp-drawer-role {
+    font-size: 12px;
+    color: #64748b;
+    margin: 0;
+    text-transform: capitalize;
+  }
+
+  .tp-drawer .tp-sidebar-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 50px;
+    border-radius: 16px;
+    background: rgba(248, 250, 252, .92);
+    border: 1px solid rgba(226, 232, 240, .95);
+    color: #334155;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 11px 14px;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: all .16s ease;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, .05);
+  }
+
+  .tp-drawer .tp-sidebar-nav-item.active {
+    background: linear-gradient(135deg, #2563eb, #38bdf8);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 12px 26px rgba(37, 99, 235, .24);
+  }
+
+  .tp-drawer .tp-sidebar-nav-item:hover {
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    color: #1d4ed8;
+    transform: translateX(3px);
+  }
+
+  .tp-drawer-signout {
+    margin-top: auto;
+    min-height: 48px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #fee2e2, #fff1f2);
+    color: #dc2626;
+    font-weight: 800;
+    font-size: 14px;
+    border: 1px solid rgba(254, 202, 202, .9);
+    cursor: pointer;
+    padding: 12px 0;
+    transition: background .15s;
+  }
+
+  .tp-drawer-signout:hover {
+    background: #fee2e2;
+  }
+}
+
+/* Tablet drawer width */
+@media (min-width: 601px) and (max-width: 900px) {
+  .tp-drawer {
+    width: min(50vw, 360px);
+  }
+}
+
+/* ─────────────────────────────────────
+   8. BOTTOM NAVIGATION
+   ───────────────────────────────────── */
+@media (max-width: 900px) {
+  .tp-bottom-nav {
+    display: flex !important;
+    position: fixed;
+    left: max(10px, env(safe-area-inset-left, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
+    bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    z-index: 80;
+    min-height: 70px;
+    border-radius: 26px;
+    border: 1px solid rgba(191, 219, 254, .8);
+    background: linear-gradient(135deg, rgba(255, 255, 255, .96), rgba(239, 246, 255, .93));
+    backdrop-filter: blur(24px) saturate(1.4);
+    -webkit-backdrop-filter: blur(24px) saturate(1.4);
+    box-shadow: 0 -16px 40px rgba(15, 23, 42, .12), 0 14px 32px rgba(37, 99, 235, .1), inset 0 1px 0 rgba(255, 255, 255, .92);
+    padding: 8px;
+    justify-content: space-between;
+    gap: 5px;
+    overflow: hidden;
+  }
+
+  .tp-nav-item {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 54px;
+    border-radius: 20px;
+    padding: 8px 4px 7px;
+    color: #64748b;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color .18s ease, transform .18s ease, background .18s ease;
+  }
+
+  .tp-nav-item::before {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    z-index: -1;
+    border-radius: 17px;
+    opacity: 0;
+    transform: scale(.92);
+    background: linear-gradient(135deg, #2563eb, #38bdf8);
+    box-shadow: 0 10px 20px rgba(37, 99, 235, .28), inset 0 1px 0 rgba(255, 255, 255, .4);
+    transition: opacity .2s ease, transform .2s ease;
+  }
+
+  .tp-nav-item.active {
+    color: #fff;
+    background: transparent;
+  }
+
+  .tp-nav-item.active::before {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .tp-nav-item.active svg {
+    transform: translateY(-2px) scale(1.08);
+    filter: drop-shadow(0 6px 10px rgba(15, 23, 42, .22));
+  }
+
+  .tp-nav-item.active .tp-nav-label {
+    color: #fff !important;
+  }
+
+  .tp-nav-item:hover:not(.active) {
+    transform: translateY(-1px);
+    color: #2563eb;
+    background: rgba(219, 234, 254, .5);
+  }
+
+  .tp-nav-item svg {
+    width: 22px;
+    height: 22px;
+    transition: transform .18s ease, filter .18s ease;
+  }
+
+  .tp-nav-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: -.01em;
+    transition: color .18s ease;
+  }
+
+}
+
+/* Tablet: center the bottom nav */
+@media (min-width: 601px) and (max-width: 900px) {
+  .tp-bottom-nav {
+    left: 50%;
+    right: auto;
+    width: min(680px, calc(100vw - 32px));
+    transform: translateX(-50%);
+  }
+}
+
+/* Small mobile nav */
+@media (max-width: 380px) {
+  .tp-bottom-nav {
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    min-height: 64px;
+    border-radius: 22px;
+    padding: 6px;
+    gap: 3px;
+  }
+
+  .tp-nav-item {
+    min-height: 50px;
+    padding: 7px 2px 6px;
+  }
+
+  .tp-nav-item svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .tp-nav-label {
+    font-size: 9px;
+  }
+}
+
+/* ─────────────────────────────────────
+   9. CARDS GRID — MENU & CLASS GRIDS
+   ───────────────────────────────────── */
+.tp-cards-grid,
+.tp-class-grid,
+.tp-detail-grid {
+  display: grid;
+  gap: clamp(10px, 2vw, 18px);
+}
+
+@media (max-width: 600px) {
+
+  .tp-cards-grid,
+  .tp-class-grid,
+  .tp-detail-grid {
+    grid-template-columns: 1fr !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 900px) {
+
+  .tp-cards-grid,
+  .tp-class-grid,
+  .tp-detail-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+@media (min-width: 901px) {
+
+  .tp-cards-grid,
+  .tp-class-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+.tp-menu-card {
+  width: 100%;
+}
+
+/* Menu card: horizontal on mobile */
+@media (max-width: 600px) {
+  .tp-menu-card {
+    flex-direction: row !important;
+    align-items: center;
+    padding: 14px 16px !important;
+    gap: 14px;
+  }
+
+  .tp-card-icon {
+    width: 46px !important;
+    height: 46px !important;
+    flex-shrink: 0;
+  }
+
+  .tp-card-chevron {
+    display: flex !important;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+}
+
+/* Class cards */
+@media (max-width: 600px) {
+  .tp-class-card {
+    padding: 14px !important;
+  }
+
+  .tp-class-card-num {
+    width: 46px !important;
+    height: 46px !important;
+    min-width: 46px !important;
+  }
+}
+
+/* Student roster grid */
+.tp-student-roster-grid {
+  display: grid;
+  gap: clamp(8px, 1.5vw, 14px);
+}
+
+@media (max-width: 600px) {
+  .tp-student-roster-grid {
+    grid-template-columns: 1fr !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 900px) {
+  .tp-student-roster-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+@media (min-width: 901px) {
+  .tp-student-roster-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* ─────────────────────────────────────
+   10. SECTION HEADERS & TOOLBARS
+   ───────────────────────────────────── */
+@media (max-width: 900px) {
+  .tp-section-header {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+    gap: 10px;
+    padding: 16px clamp(12px, 4vw, 24px) 0 !important;
+  }
+
+  .tp-section-title {
+    font-size: clamp(18px, 4.5vw, 24px) !important;
+  }
+
+  .tp-back-btn {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+  }
+
+  .tp-roster-toolbar {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px;
+    padding: 0 clamp(12px, 4vw, 24px) 14px !important;
+    flex-wrap: wrap;
+  }
+
+  .tp-roster-toolbar>div {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tp-add-student-btn,
+  .tp-delete-toggle-btn {
+    min-height: 42px;
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* Delete bar mobile */
+@media (max-width: 600px) {
+  .tp-delete-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px;
+  }
+
+  .tp-delete-bar-left,
+  .tp-delete-bar-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .tp-delete-exec-btn,
+  .tp-delete-cancel-btn,
+  .tp-select-all-btn {
+    min-height: 42px;
+    flex: 1;
+  }
+}
+
+/* ─────────────────────────────────────
+   11. MODALS — ALL SIZES
+   ───────────────────────────────────── */
+.tp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(15, 23, 42, .62);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(10px, 3vw, 24px);
+  animation: overlayFadeIn .25s ease-out;
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.tp-modal,
+.es-modal {
+  width: min(94vw, 600px);
+  max-height: calc(100dvh - 40px);
+  overflow: hidden;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, .28);
+  animation: modalPopIn .25s cubic-bezier(.16, 1, .3, 1);
+}
+
+.tp-confirm-modal {
+  width: min(92vw, 440px);
+  border-radius: 22px;
+  background: #fff;
+  animation: modalPopIn .25s cubic-bezier(.16, 1, .3, 1);
+}
+
+@keyframes modalPopIn {
+  from {
+    opacity: 0;
+    transform: scale(.94) translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.tp-modal-body,
+.es-body {
+  overflow-y: auto;
+  max-height: calc(100dvh - 160px);
+  -webkit-overflow-scrolling: touch;
+}
+
+.tp-form-grid,
+.es-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+}
+
+@media (max-width: 600px) {
+  .tp-modal-overlay {
+    align-items: flex-end;
+    padding: 10px 10px 0;
+  }
+
+  .tp-modal,
+  .es-modal {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 22px 22px 12px 12px;
+    max-height: 92dvh;
+  }
+
+  .tp-confirm-modal {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 22px 22px 12px 12px;
+  }
+
+  .es-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding-right: 52px !important;
+  }
+
+  .es-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .es-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .es-footer,
+  .tp-modal-footer,
+  .tp-confirm-actions {
+    flex-direction: column-reverse;
+    align-items: stretch !important;
+    gap: 8px;
+  }
+
+  .tp-modal-cancel-btn,
+  .tp-modal-submit-btn,
+  .tp-delete-exec-btn {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .tp-form-grid,
+  .es-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .tp-form-full,
+  .es-field-full {
+    grid-column: 1 !important;
+  }
+}
+
+/* ─────────────────────────────────────
+   12. PROFILE PAGE
+   ───────────────────────────────────── */
+.tp-profile-page {
+  padding: clamp(16px, 4vw, 32px) clamp(12px, 4vw, 40px);
+}
+
+.tp-profile-card {
+  max-width: 850px;
+  margin: 0 auto;
+  padding: clamp(20px, 4vw, 36px);
+  border-radius: clamp(18px, 3vw, 24px);
+}
+
+.tp-profile-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 520px) {
+  .tp-profile-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+  }
+
+  .tp-profile-avatar {
+    width: 84px;
+    height: 84px;
+    border-radius: 22px;
+    font-size: 30px;
+  }
+
+  .tp-profile-name {
+    font-size: 20px;
+  }
+}
+
+/* ─────────────────────────────────────
+   13. EXAM RESULT VIEW (ExamResultView)
+   ───────────────────────────────────── */
+
+/* Search/filter panel */
+.results-search-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.results-search-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 600px) {
+
+  .results-search-panel,
+  .results-search-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .results-list-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .results-list-actions button {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* Result entries table */
+.results-entry-table-wrap,
+.results-list-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mark-sheet document — mobile friendly */
+@media (max-width: 720px) {
+  .mark-sheet-document {
+    padding: 16px !important;
+  }
+
+  .mark-sheet-header,
+  .mark-sheet-school {
+    flex-direction: column !important;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .mark-sheet-student-card {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mark-sheet-info-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mark-sheet-ribbon {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .mark-sheet-signatures {
+    grid-template-columns: 1fr !important;
+    gap: 16px;
+    padding: 20px 16px !important;
+  }
+
+  .mark-sheet-title-box {
+    min-width: unset;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .mark-sheet-ribbon {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .mark-sheet-actions {
+    grid-template-columns: 1fr !important;
+    padding: 14px 12px !important;
+  }
+
+  .mark-sheet-school-name {
+    font-size: clamp(16px, 4vw, 20px) !important;
+  }
+
+  .mark-sheet-photo,
+  .mark-sheet-photo-placeholder {
+    width: 90px !important;
+    height: 104px !important;
+  }
+}
+
+/* Entry form inside ExamResultView */
+.erv-entry-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 600px) {
+  .erv-entry-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .erv-entry-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .erv-entry-row input,
+  .erv-entry-row select {
+    width: 100%;
+  }
+}
+
+/* Results list action row */
+@media (max-width: 768px) {
+  div[style*="display: flex"][style*="justify-content: space-between"][style*="align-items: center"][style*="flex-wrap: wrap"] {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 10px;
+  }
+}
+
+/* ─────────────────────────────────────
+   14. ROUTINE VIEW (RoutineView.jsx)
+   ───────────────────────────────────── */
+.routine-main-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.routine-table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 10px;
+}
+
+@media (max-width: 768px) {
+  .routine-main-container {
+    padding: 10px !important;
+  }
+
+  .routine-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px;
+    padding: 14px !important;
+  }
+
+  .routine-header h2 {
+    font-size: clamp(18px, 5vw, 22px) !important;
+  }
+
+  .routine-tab-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .routine-tab-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  .routine-tab {
+    flex-shrink: 0;
+    min-width: 90px;
+    text-align: center;
+    padding: 9px 12px !important;
+    font-size: 13px !important;
+  }
+
+  .routine-selector-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .routine-selector-row select,
+  .routine-selector-row input {
+    width: 100% !important;
+  }
+
+  .routine-table-container table {
+    font-size: 11.5px !important;
+    min-width: 560px !important;
+  }
+
+  .routine-table-container th,
+  .routine-table-container td {
+    padding: 5px 4px !important;
+  }
+
+  .routine-table-container input {
+    font-size: 11.5px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .routine-table-container table {
+    font-size: 10.5px !important;
+    min-width: 480px !important;
+  }
+
+  .routine-table-container th,
+  .routine-table-container td {
+    padding: 4px 3px !important;
+  }
+
+  .routine-class-card {
+    padding: 10px 12px !important;
+  }
+}
+
+/* Class cards in routine view */
+.routine-class-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 600px) {
+  .routine-class-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ─────────────────────────────────────
+   15. ADMIN DASHBOARD SPECIFIC
+   ───────────────────────────────────── */
+
+/* Admin topbar section headers */
+@media (max-width: 900px) {
+
+  div.tp-main>div[style*="padding: '24px 20px'"],
+  div.tp-main>div[style*="padding: 24px 20px"] {
+    padding: clamp(14px, 3vw, 20px) !important;
+  }
+}
+
+/* School profile form */
+.admin-profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 600px) {
+  .admin-profile-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-profile-logo-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
+
+/* Admin overview stats */
+@media (max-width: 600px) {
+  .tp-class-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+/* ─────────────────────────────────────
+   16. STUDENT VIEW (StudentView.jsx)
+   ───────────────────────────────────── */
+.sv-content-area {
+  min-width: 0;
+  width: 100%;
+  overflow-x: hidden;
+  padding: clamp(14px, 4vw, 28px) clamp(12px, 4vw, 32px) calc(90px + env(safe-area-inset-bottom, 0px));
+}
+
+.sv-detail-grid {
+  display: grid;
+  gap: clamp(10px, 2vw, 16px);
+}
+
+@media (max-width: 600px) {
+  .sv-detail-grid {
+    grid-template-columns: 1fr !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .sv-detail-grid--single {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sv-info-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .sv-info-value {
+    text-align: left;
+  }
+
+  .sv-fee-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 900px) {
+  .sv-detail-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+.sv-notice-grid,
+.sv-calendar-grid {
+  display: grid;
+  gap: clamp(10px, 2vw, 16px);
+}
+
+@media (max-width: 600px) {
+
+  .sv-notice-grid,
+  .sv-calendar-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 900px) {
+
+  .sv-notice-grid,
+  .sv-calendar-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+.sv-profile-card {
+  max-width: 100%;
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+  .sv-profile-card {
+    padding: 24px 16px;
+    border-radius: 20px;
+  }
+
+  .sv-profile-avatar {
+    width: 72px;
+    height: 72px;
+    font-size: 28px;
+  }
+
+  .sv-profile-name {
+    font-size: 18px;
+  }
+
+  .sv-calendar-card {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .sv-message-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+/* Table scroll */
+.sv-table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
+}
+
+/* ─────────────────────────────────────
+   17. TEACHER PANEL SPECIFIC
+   ───────────────────────────────────── */
+@media (max-width: 600px) {
+  .tp-detail-card-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .tp-detail-amount {
+    font-size: 18px;
+  }
+
+  .tp-roster-options-btn {
+    width: 36px;
+    height: 36px;
+    top: 6px;
+    right: 6px;
+  }
+
+  .tp-dropdown-menu {
+    right: 6px;
+    top: 42px;
+    min-width: 156px;
+  }
+
+  .tp-delete-section {
+    padding: 16px 0 48px;
+  }
+
+  .tp-delete-toggle-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* Roster card responsive tweaks */
+@media (max-width: 600px) {
+  .tp-student-roster-card {
+    align-items: flex-start;
+    padding: 12px 14px !important;
+  }
+
+  .tp-roster-avatar,
+  .tp-roster-avatar-img {
+    width: 42px !important;
+    height: 42px !important;
+  }
+}
+
+/* ─────────────────────────────────────
+   18. TABLES — UNIVERSAL SCROLL
+   ───────────────────────────────────── */
+.results-table,
+.sv-table,
+.results-entry-table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
+}
+
+.results-table thead,
+.results-table tbody,
+.sv-table thead,
+.sv-table tbody {
+  display: table;
+  width: 100%;
+}
+
+/* ─────────────────────────────────────
+   19. STUDENT DASHBOARD (StudentView hero)
+   ───────────────────────────────────── */
+.dashboard-wrapper {
+  min-height: 100dvh;
+}
+
+.dashboard-screen {
+  max-width: 100%;
+}
+
+@media (max-width: 480px) {
+  .dashboard-header {
+    padding: 16px !important;
+  }
+
+  .dashboard-greeting h1 {
+    font-size: clamp(20px, 6vw, 26px);
+  }
+
+  .dashboard-school-crest {
+    width: 90px;
+    padding: 10px;
+  }
+
+  .dashboard-school-crest-img {
+    height: 40px;
+  }
+
+  .dashboard-menu-list {
+    margin: -20px 10px 10px;
+    padding: 10px;
+  }
+
+  .dashboard-menu-card {
+    padding: 14px !important;
+  }
+
+  .dashboard-bottom-nav {
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    height: 68px;
+    border-radius: 22px;
+  }
+}
+
+/* ─────────────────────────────────────
+   20. VERSION INFO & MISC PAGES
+   ───────────────────────────────────── */
+.page-shell {
+  padding: 20px 16px;
+  min-height: 100dvh;
+}
+
+.page-shell-card {
+  width: min(100%, 440px);
+  padding: clamp(20px, 5vw, 28px);
+}
+
+@media (max-width: 480px) {
+  .page-shell-card {
+    padding: 20px 16px;
+    border-radius: 18px;
+  }
+}
+
+/* ─────────────────────────────────────
+   21. HOVER: TOUCH-DEVICE OVERRIDES
+   ───────────────────────────────────── */
+@media (hover: none) {
+
+  .tp-menu-card:hover,
+  .tp-class-card:hover,
+  .tp-student-roster-card:hover,
+  .tp-sidebar-nav-item:hover,
+  .tp-drawer .tp-sidebar-nav-item:hover,
+  .tp-nav-item:hover,
+  .tp-hamburger:hover,
+  .tp-icon-btn:hover {
+    transform: none !important;
+    box-shadow: unset;
+  }
+}
+
+/* ─────────────────────────────────────
+   22. MISC LAYOUT UTILITIES
+   ───────────────────────────────────── */
+
+/* Flex containers that should wrap on small screens */
+.tp-detail-card-row,
+.tp-roster-toolbar,
+.tp-delete-bar,
+.sv-fee-row,
+.sv-message-header,
+.sv-info-row,
+.card-header-actions,
+.routine-action-bar,
+.fee-action-bar {
+  flex-wrap: wrap;
+}
+
+/* Enforce no internal line breaks inside buttons on mobile & desktop */
+button,
+.tp-btn-primary,
+.tp-btn-danger,
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-outline,
+.action-btn,
+.filter-btn,
+.tab-btn,
+.pill-btn,
+.pill-switcher button {
+  white-space: nowrap !important;
+}
+
+/* Truncation helpers for text overflow control */
+.tp-card-title,
+.tp-class-card-title,
+.tp-roster-name,
+.tp-topbar-greeting h2,
+.tp-drawer-name,
+.tp-sidebar-school,
+.sv-notice-title,
+.sv-calendar-title,
+.sv-teacher-name,
+.fee-item-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Min-width zero for flex children to allow child truncation */
+.tp-roster-info,
+.tp-card-text,
+.tp-class-card-body,
+.sv-message-body,
+.sv-teacher-meta,
+.tp-topbar-greeting,
+.tp-detail-card,
+.flex-child-truncate {
+  min-width: 0;
+}
+
+/* Remove tap highlight on mobile */
+.tp-menu-card,
+.tp-class-card,
+.tp-student-roster-card,
+.tp-nav-item,
+.tp-sidebar-nav-item,
+.tp-drawer .tp-sidebar-nav-item {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Focus-visible for accessibility */
+.tp-hamburger:focus-visible,
+.tp-icon-btn:focus-visible,
+.tp-nav-item:focus-visible,
+.tp-sidebar-nav-item:focus-visible,
+.tp-modal-close:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* ─────────────────────────────────────
+   23. MARKSHEET & TRANSCRIPT RESPONSIVE (Desktop, Tablet, Mobile)
+   ───────────────────────────────────── */
+@media screen and (max-width: 768px) {
+  .transcript-container {
+    padding: clamp(12px, 3vw, 20px) !important;
+    margin: 8px 0 !important;
+  }
+
+  .transcript-student-section {
+    display: flex !important;
+    flex-direction: column-reverse !important;
+    align-items: center !important;
+    gap: 16px !important;
+  }
+
+  .transcript-student-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .transcript-summary-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1px !important;
+    background: #cbd5e1 !important;
+  }
+
+  .transcript-summary-cell {
+    background: #f8fafc !important;
+    padding: 10px 8px !important;
+    border-right: none !important;
+  }
+
+  .print-signatures-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: space-around !important;
+    gap: 16px 12px !important;
+    margin-top: 24px !important;
+  }
+
+  .print-signature-item {
+    flex: 1 1 95px !important;
+    max-width: 140px !important;
+    min-width: 90px !important;
+  }
+}

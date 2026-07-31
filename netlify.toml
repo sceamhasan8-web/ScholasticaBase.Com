@@ -1,0 +1,36 @@
+# netlify.toml — Netlify deployment configuration for ProggaSchool SPA
+
+[build]
+  # Vite outputs to the 'dist' folder by default
+  publish = "dist"
+  command = "npm run build"
+
+# ─── SPA Client-Side Routing Fix ──────────────────────────────────────────────
+# React Router handles all navigation client-side. Without this redirect rule,
+# refreshing any non-root route (e.g. /login, /admin, /teacher) on Netlify returns
+# a 404 because Netlify looks for a real file at that path and finds none.
+# This rule tells Netlify to always serve index.html and let React Router take over.
+[[redirects]]
+  from = "/*"
+  to   = "/index.html"
+  status = 200
+
+# ─── Security Headers ─────────────────────────────────────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Prevent clickjacking
+    X-Frame-Options = "DENY"
+    # Prevent MIME-type sniffing
+    X-Content-Type-Options = "nosniff"
+    # Enable XSS filter in older browsers
+    X-XSS-Protection = "1; mode=block"
+    # Control referrer information
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# ─── Cache Static Assets ──────────────────────────────────────────────────────
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    # Vite fingerprints asset filenames — safe to cache for 1 year
+    Cache-Control = "public, max-age=31536000, immutable"

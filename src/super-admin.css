@@ -1,0 +1,1150 @@
+/* ═══════════════════════════════════════════════════════════════
+   Super Admin — Panel Switcher & Impersonation Styles
+   Premium glassmorphism design with smooth animations
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Floating Switcher Container ──────────────────────────── */
+.sa-switcher {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 999999;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Toggle Button (always visible) ───────────────────────── */
+.sa-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 14px;
+  background: rgba(15, 10, 40, 0.82);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow:
+    0 4px 24px rgba(139, 92, 246, 0.18),
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  user-select: none;
+  letter-spacing: 0.02em;
+}
+
+.sa-toggle-btn:hover {
+  background: rgba(20, 12, 55, 0.92);
+  border-color: rgba(139, 92, 246, 0.55);
+  box-shadow:
+    0 6px 32px rgba(139, 92, 246, 0.28),
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.sa-toggle-btn:active {
+  transform: translateY(0);
+}
+
+.sa-toggle-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.sa-toggle-label {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sa-toggle-chevron {
+  font-size: 10px;
+  transition: transform 0.3s ease;
+  opacity: 0.7;
+}
+
+.sa-toggle-chevron.sa-open {
+  transform: rotate(180deg);
+}
+
+/* ── Indicator dot (shows current view color) ─────────────── */
+.sa-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px currentColor;
+  animation: sa-pulse 2s ease-in-out infinite;
+}
+
+@keyframes sa-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px currentColor; }
+  50%      { opacity: 0.7; box-shadow: 0 0 14px currentColor; }
+}
+
+/* ── Dropdown Panel ───────────────────────────────────────── */
+.sa-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 300px;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 18px;
+  background: rgba(12, 8, 32, 0.92);
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.45),
+    0 0 40px rgba(139, 92, 246, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  padding: 6px;
+  opacity: 0;
+  transform: translateY(-8px) scale(0.97);
+  pointer-events: none;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sa-dropdown.sa-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+/* ── Dropdown Header ──────────────────────────────────────── */
+.sa-dropdown-header {
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 4px;
+}
+
+.sa-dropdown-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(139, 92, 246, 0.8);
+  margin: 0;
+}
+
+.sa-dropdown-subtitle {
+  font-size: 10.5px;
+  color: rgba(148, 163, 184, 0.6);
+  margin: 3px 0 0;
+}
+
+/* ── Panel Buttons ────────────────────────────────────────── */
+.sa-panel-list {
+  padding: 2px 0;
+}
+
+.sa-panel-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  letter-spacing: 0.01em;
+}
+
+.sa-panel-btn:hover {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.15);
+  color: #e2e8f0;
+}
+
+.sa-panel-btn.sa-active {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.3);
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.sa-panel-btn.sa-active::after {
+  content: '✓';
+  margin-left: auto;
+  font-size: 12px;
+  color: #8b5cf6;
+}
+
+.sa-panel-icon {
+  font-size: 18px;
+  width: 26px;
+  text-align: center;
+  line-height: 1;
+}
+
+.sa-panel-label {
+  flex: 1;
+}
+
+/* ── Divider ──────────────────────────────────────────────── */
+.sa-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 4px 10px;
+}
+
+/* ── Impersonation Section ────────────────────────────────── */
+.sa-impersonate-section {
+  padding: 8px 14px 10px;
+}
+
+.sa-impersonate-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(249, 115, 22, 0.75);
+  margin: 0 0 8px;
+}
+
+.sa-impersonate-search {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #e2e8f0;
+  font-size: 12.5px;
+  outline: none;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.sa-impersonate-search::placeholder {
+  color: rgba(148, 163, 184, 0.5);
+}
+
+.sa-impersonate-search:focus {
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+.sa-user-list {
+  max-height: 160px;
+  overflow-y: auto;
+  margin-top: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.3) transparent;
+}
+
+.sa-user-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sa-user-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sa-user-list::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 4px;
+}
+
+.sa-user-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.sa-user-item:hover {
+  background: rgba(249, 115, 22, 0.1);
+  color: #f1f5f9;
+}
+
+.sa-user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.sa-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sa-user-name {
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sa-user-role {
+  font-size: 10px;
+  color: rgba(148, 163, 184, 0.6);
+  text-transform: capitalize;
+}
+
+.sa-no-results {
+  padding: 10px;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(148, 163, 184, 0.5);
+}
+
+/* ── Impersonation Banner ─────────────────────────────────── */
+.sa-impersonation-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 7px 20px;
+  background: linear-gradient(135deg, #f97316 0%, #dc2626 100%);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  box-shadow: 0 2px 12px rgba(249, 115, 22, 0.35);
+  animation: sa-banner-in 0.3s ease-out;
+  letter-spacing: 0.02em;
+}
+
+@keyframes sa-banner-in {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+.sa-banner-icon {
+  font-size: 15px;
+}
+
+.sa-banner-exit {
+  padding: 3px 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sa-banner-exit:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: #fff;
+}
+
+/* ── When banner is showing, push switcher down ───────────── */
+.sa-has-banner .sa-switcher {
+  top: 46px;
+}
+
+/* ── Responsive: mobile-friendly ──────────────────────────── */
+@media (max-width: 640px) {
+  .sa-switcher {
+    top: 8px;
+    right: 8px;
+  }
+
+  .sa-toggle-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 12px;
+  }
+
+  .sa-toggle-label {
+    display: none;
+  }
+
+  .sa-dropdown {
+    width: 260px;
+    right: -4px;
+  }
+
+  .sa-impersonation-banner {
+    font-size: 11px;
+    padding: 6px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .sa-has-banner .sa-switcher {
+    top: 42px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Super Admin — Persistent Top Bar & Multi-School Selector Modal
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Toast Notification ───────────────────────────────────── */
+.sa-toast-notification {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 20000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.94);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  color: #f8fafc;
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(139, 92, 246, 0.25);
+  backdrop-filter: blur(12px);
+  animation: sa-toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes sa-toast-in {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.sa-toast-icon {
+  font-size: 18px;
+}
+
+/* ── Persistent Top Bar ───────────────────────────────────── */
+.sa-persistent-top-bar {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9990;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 20px;
+  background: linear-gradient(135deg, rgba(15, 10, 40, 0.96) 0%, rgba(26, 16, 60, 0.96) 100%);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.3);
+  backdrop-filter: blur(16px);
+  color: #e2e8f0;
+  font-family: 'Inter', system-ui, sans-serif;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.sa-persistent-top-bar.sa-bar-has-banner {
+  top: 36px;
+}
+
+.sa-top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.sa-top-bar-badge {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.06em;
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
+}
+
+.sa-top-bar-school-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.sa-school-icon {
+  font-size: 16px;
+}
+
+.sa-school-name {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.sa-school-eiin {
+  color: #94a3b8;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.sa-school-id-pill {
+  color: #38bdf8;
+  font-size: 11.5px;
+  font-family: monospace;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.sa-top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sa-bar-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sa-bar-btn-primary {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  border-color: rgba(37, 99, 235, 0.5);
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.3);
+}
+
+.sa-bar-btn-primary:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  transform: translateY(-1px);
+}
+
+.sa-bar-btn-secondary {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: #ffffff;
+  border-color: rgba(5, 150, 105, 0.5);
+  box-shadow: 0 2px 10px rgba(5, 150, 105, 0.3);
+}
+
+.sa-bar-btn-secondary:hover {
+  background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+  transform: translateY(-1px);
+}
+
+.sa-bar-btn-outline {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.sa-bar-btn-outline:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.sa-has-top-bar {
+  top: 54px !important;
+}
+
+/* ── Dropdown School Box ──────────────────────────────────── */
+.sa-dropdown-school-box {
+  padding: 6px 12px 4px;
+}
+
+.sa-dropdown-school-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  color: #c084fc;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sa-dropdown-school-btn:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.35) 0%, rgba(99, 102, 241, 0.35) 100%);
+  color: #fff;
+}
+
+/* ── School Selector Modal ────────────────────────────────── */
+.sa-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  background: rgba(5, 3, 20, 0.75);
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: sa-fade-in 0.2s ease-out;
+}
+
+@keyframes sa-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.sa-modal-dialog {
+  width: 100%;
+  max-width: 1050px;
+  max-height: 90vh;
+  background: #0f172a;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 24px;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 50px rgba(139, 92, 246, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: sa-pop-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #f8fafc;
+}
+
+@keyframes sa-pop-in {
+  from { transform: scale(0.95) translateY(10px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Modal Header */
+.sa-modal-header {
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.sa-modal-header-title h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.sa-modal-header-title p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.sa-modal-close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.sa-modal-close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Modal Controls */
+.sa-modal-controls {
+  padding: 16px 24px;
+  background: rgba(15, 23, 42, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sa-search-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.sa-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  color: #64748b;
+}
+
+.sa-school-search-input {
+  width: 100%;
+  padding: 12px 16px 12px 42px;
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
+}
+
+.sa-school-search-input::placeholder {
+  color: #64748b;
+}
+
+.sa-school-search-input:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+}
+
+.sa-modal-stats-pills {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sa-stats-pill {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sa-pill-purple { background: rgba(139, 92, 246, 0.18); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.3); }
+.sa-pill-emerald { background: rgba(16, 185, 129, 0.18); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+.sa-pill-blue { background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+
+/* Modal Body & School Grid */
+.sa-schools-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+  max-height: calc(90vh - 220px);
+}
+
+.sa-empty-schools {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.sa-empty-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.sa-schools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 18px;
+}
+
+.sa-school-card {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  position: relative;
+}
+
+.sa-school-card:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(139, 92, 246, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 20px rgba(139, 92, 246, 0.15);
+}
+
+.sa-school-card-active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border: 2px solid #10b981;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.25);
+}
+
+.sa-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sa-school-logo-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sa-school-card-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sa-school-initials {
+  font-size: 14px;
+  font-weight: 800;
+  color: #8b5cf6;
+}
+
+.sa-card-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sa-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sa-badge-active { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+.sa-badge-inactive { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); }
+.sa-badge-type { background: rgba(139, 92, 246, 0.2); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.3); }
+
+.sa-card-school-name {
+  margin: 4px 0 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.3;
+}
+
+.sa-card-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sa-card-detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.sa-detail-label {
+  color: #94a3b8;
+}
+
+.sa-detail-value {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.sa-font-mono {
+  font-family: monospace;
+  font-size: 12.5px;
+}
+
+.sa-card-footer {
+  margin-top: 6px;
+}
+
+.sa-card-switch-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.sa-btn-active-disabled {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  cursor: default;
+}
+
+.sa-btn-switch-now {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.sa-btn-switch-now:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+}
+
+/* Modal Footer */
+.sa-modal-footer {
+  padding: 16px 24px;
+  background: rgba(15, 23, 42, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .sa-persistent-top-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .sa-top-bar-right {
+    justify-content: space-between;
+  }
+  .sa-modal-dialog {
+    max-height: 95vh;
+  }
+  .sa-schools-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Super Admin — Landing School Selection Screen Styles
+   ═══════════════════════════════════════════════════════════════ */
+.sa-landing-container {
+  min-height: 100vh;
+  background: #090d16;
+  color: #f8fafc;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  padding: 32px 40px;
+  box-sizing: border-box;
+}
+
+.sa-landing-hero {
+  background: linear-gradient(135deg, rgba(30, 27, 75, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 24px;
+  padding: 32px 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.15);
+  margin-bottom: 24px;
+}
+
+.sa-hero-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 20px;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+  box-shadow: 0 0 14px rgba(139, 92, 246, 0.4);
+}
+
+.sa-hero-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.sa-hero-subtitle {
+  margin: 8px 0 0;
+  font-size: 14.5px;
+  color: #94a3b8;
+  max-width: 620px;
+  line-height: 1.5;
+}
+
+.sa-hero-right {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sa-landing-controls {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.sa-landing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 22px;
+}
+
+@media (max-width: 768px) {
+  .sa-landing-container {
+    padding: 16px;
+  }
+  .sa-landing-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 20px;
+  }
+  .sa-hero-title {
+    font-size: 22px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Super Admin Dashboard — Master Control Header & Branch View
+   ═══════════════════════════════════════════════════════════════ */
+.sa-master-dashboard-container {
+  min-height: 100vh;
+  background: #090d16;
+  color: #f8fafc;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.sa-branch-control-header {
+  position: sticky;
+  top: 0;
+  z-index: 9999;
+  background: linear-gradient(135deg, rgba(15, 10, 40, 0.96) 0%, rgba(10, 15, 30, 0.96) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(139, 92, 246, 0.4);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(139, 92, 246, 0.15);
+}
+
+.sa-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.sa-header-badge {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 14px;
+  letter-spacing: 0.06em;
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
+  text-transform: uppercase;
+}
+
+.sa-header-school-details {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.sa-header-icon {
+  font-size: 16px;
+}
+
+.sa-header-school-name {
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.sa-header-pill {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-family: monospace;
+}
+
+.sa-pill-eiin {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.sa-pill-id {
+  background: rgba(139, 92, 246, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.sa-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sa-header-switch-btn {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35) !important;
+  border: none !important;
+  font-weight: 700 !important;
+}
+
+.sa-header-switch-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45) !important;
+}
+
+.sa-active-branch-wrapper {
+  flex: 1;
+  background: #090d16;
+}
+
+
+

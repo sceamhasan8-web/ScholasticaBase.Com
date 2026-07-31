@@ -1,0 +1,8 @@
+{
+  "appId": "com.scholasticbase.app",
+  "appName": "ScholasticBase",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -1,0 +1,99 @@
+{
+    "indexes": [
+        {
+            "collectionGroup": "results",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "studentId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "examId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "subjectId",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "results",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "classId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "group",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "examId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "roll",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "positions",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "classId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "group",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "examId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "rank",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "students",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "classId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "group",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "roll",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "groupSubjects",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "classId",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "groupName",
+                    "order": "ASCENDING"
+                }
+            ]
+        }
+    ],
+    "fieldOverrides": []
+}

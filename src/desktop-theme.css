@@ -1,0 +1,1311 @@
+/* ══════════════════════════════════════════════════════════════════════
+   ACADEMY HUB — FULL RESPONSIVE THEME
+   Covers ALL screen sizes:
+     • Desktop  ≥ 1024px  → wide sidebar (260px) + full content
+     • Tablet    640-1023px → icon-only slim sidebar (68px)
+     • Mobile    < 640px   → bottom nav + navy drawer
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Shared Design Tokens (all breakpoints) ── */
+:root {
+  --ah-navy: #1a2e4a;
+  --ah-navy-dark: #0d1b2e;
+  --ah-navy-mid: #15253e;
+  --ah-active-grad: linear-gradient(135deg, #2563eb, #1d4ed8);
+  --ah-active-shadow: 0 8px 22px rgba(37, 99, 235, 0.32);
+  --ah-sidebar-text: #CBD5E1;
+  --ah-sidebar-hover: rgba(255, 255, 255, 0.1);
+  --ah-shell-bg: #F8FAFC;
+  --ah-topbar-bg: #FFFFFF;
+  --ah-card-bg: #FFFFFF;
+  --ah-card-border: #E2E8F0;
+  --ah-card-shadow: 0 4px 20px rgba(37, 99, 235, 0.06);
+  --ah-accent: #2563eb;
+  --ah-teal: #3b82f6;
+  --ah-text-dark: #0F172A;
+  --ah-text-mid: #334155;
+  --ah-text-muted: #64748B;
+  --ah-page-pad: clamp(14px, 2.5vw, 32px);
+  --font-heading: 'Merriweather', Georgia, serif;
+  --font-body: 'Inter', 'Hind Siliguri', system-ui, sans-serif;
+}
+
+/* ══════════════════════════════════════════════
+   SHARED — Shell background (all sizes)
+   ══════════════════════════════════════════════ */
+.tp-shell {
+  background: var(--ah-shell-bg) !important;
+}
+
+/* ══════════════════════════════════════════════
+   SHARED — Card polish (all sizes)
+   ══════════════════════════════════════════════ */
+.tp-menu-card,
+.tp-class-card,
+.tp-detail-card,
+.tp-student-roster-card,
+.sv-detail-card,
+.sv-detail-panel,
+.sv-notice-card,
+.sv-calendar-card,
+.sv-message-card {
+  background: var(--ah-card-bg) !important;
+  border: 1px solid var(--ah-card-border) !important;
+  box-shadow: var(--ah-card-shadow) !important;
+}
+
+/* ══════════════════════════════════════════════
+   SHARED — Topbar theme (all sizes)
+   ══════════════════════════════════════════════ */
+.tp-topbar {
+  background: var(--ah-topbar-bg) !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9) !important;
+  box-shadow: 0 1px 8px rgba(15, 23, 42, 0.07) !important;
+}
+
+.tp-topbar-greeting h2 {
+  color: var(--ah-text-dark) !important;
+}
+
+.tp-topbar-greeting p {
+  color: var(--ah-text-muted) !important;
+}
+
+/* ══════════════════════════════════════════════
+   SHARED — Form inputs
+   ══════════════════════════════════════════════ */
+.tp-form-input:focus {
+  border-color: var(--ah-accent) !important;
+  box-shadow: 0 0 0 3px rgba(29, 111, 168, 0.15) !important;
+}
+
+.es-input:focus {
+  border-color: var(--ah-accent) !important;
+  box-shadow: 0 0 0 3px rgba(29, 111, 168, 0.12) !important;
+}
+
+/* ══════════════════════════════════════════════
+   SHARED — Login page
+   ══════════════════════════════════════════════ */
+.login-submit-btn {
+  background: linear-gradient(135deg, #1a2e4a, #1e6fbf) !important;
+}
+
+.login-submit-btn:hover {
+  opacity: 0.92 !important;
+}
+
+/* ══════════════════════════════════════════════
+   SHARED — Scroll refinement
+   ══════════════════════════════════════════════ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
+/* ══════════════════════════════════════════════
+   SHARED — Fade-up animation for content
+   ══════════════════════════════════════════════ */
+@keyframes ahFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tp-cards-grid,
+.tp-class-grid,
+.tp-detail-grid,
+.tp-student-roster-grid,
+.sv-content-area,
+.sv-detail-grid {
+  animation: ahFadeUp 0.26s ease both;
+}
+
+/* ══════════════════════════════════════════════
+   SHARED — Bottom nav academy colors (mobile)
+   ══════════════════════════════════════════════ */
+.tp-bottom-nav {
+  background: linear-gradient(135deg, rgba(26, 46, 74, 0.97) 0%, rgba(30, 61, 107, 0.97) 100%) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 -8px 32px rgba(15, 23, 42, 0.28) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+}
+
+.tp-nav-item {
+  color: rgba(255, 255, 255, 0.45) !important;
+  transition: color 0.18s ease, transform 0.18s ease !important;
+}
+
+.tp-nav-item:hover {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.tp-nav-item.active {
+  color: #fff !important;
+}
+
+.tp-nav-item::before {
+  background: linear-gradient(135deg, #1e6fbf, #0ea5e9) !important;
+  box-shadow: 0 8px 20px rgba(14, 165, 233, 0.35) !important;
+}
+
+.tp-nav-label {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em;
+}
+
+/* ══════════════════════════════════════════════
+   SHARED — Drawer (mobile) — Academy Hub navy
+   ══════════════════════════════════════════════ */
+.tp-drawer {
+  background: #ffffff !important;
+  border-right: 1px solid #e2e8f0 !important;
+  box-shadow: 18px 0 48px rgba(15, 23, 42, 0.18) !important;
+}
+
+.tp-drawer-title {
+  color: #0f172a !important;
+  font-size: 18px !important;
+  font-weight: 800 !important;
+}
+
+.tp-drawer-label {
+  color: #64748b !important;
+  letter-spacing: 0.06em;
+  font-weight: 700 !important;
+}
+
+.tp-drawer-name {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+.tp-drawer-role {
+  color: #2563eb !important;
+  font-weight: 600 !important;
+}
+
+.tp-drawer .tp-sidebar-nav-item {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #334155 !important;
+  border-radius: 12px !important;
+  min-height: 48px;
+  font-weight: 600 !important;
+}
+
+.tp-drawer .tp-sidebar-nav-item:hover {
+  background: #eff6ff !important;
+  border-color: #93c5fd !important;
+  color: #1d4ed8 !important;
+  transform: translateX(3px) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12) !important;
+}
+
+.tp-drawer .tp-sidebar-nav-item:hover svg {
+  color: #1d4ed8 !important;
+  stroke: #1d4ed8 !important;
+  opacity: 1 !important;
+}
+
+.tp-drawer .tp-sidebar-nav-item.active {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3) !important;
+}
+
+.tp-drawer .tp-sidebar-nav-item.active svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.tp-drawer-signout {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25) !important;
+}
+
+.tp-drawer-signout:hover {
+  background: #b91c1c !important;
+  color: #ffffff !important;
+}
+
+.tp-drawer-overlay {
+  background: rgba(15, 23, 42, 0.65) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+/* Sidebar brand in drawer */
+.tp-drawer .tp-sidebar-brand {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.tp-drawer .tp-sidebar-crest {
+  filter: drop-shadow(0 4px 12px rgba(14, 165, 233, 0.3)) !important;
+}
+
+.tp-drawer .tp-sidebar-school {
+  color: #e2eaf4 !important;
+}
+
+/* ══════════════════════════════════════════════
+   SHARED — Hero banner
+   ══════════════════════════════════════════════ */
+.tp-hero,
+.tp-hero-pro,
+.routine-header-banner,
+.tp-section-header-banner,
+.sv-header-banner {
+  background: linear-gradient(135deg, #1a3f8f 0%, #1e6fbf 60%, #2563eb 100%) !important;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 12px 32px rgba(26, 63, 143, 0.25) !important;
+  color: #ffffff !important;
+}
+
+.tp-greeting {
+  min-width: 0 !important;
+}
+
+.tp-greeting h1 {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  margin: 0 0 6px !important;
+  text-shadow: 0 2px 4px rgba(15, 23, 42, 0.15);
+}
+
+.tp-greeting p {
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-weight: 500 !important;
+}
+
+.tp-greeting-eyebrow {
+  background: rgba(14, 165, 233, 0.2) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(14, 165, 233, 0.3) !important;
+  padding: 5px 12px !important;
+  border-radius: 999px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+}
+
+.tp-hero-stats {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  margin-top: 14px !important;
+  width: 100% !important;
+}
+
+.tp-hero-stats span {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 8px 14px !important;
+  border-radius: 12px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.tp-hero-stats strong {
+  color: #ffffff !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+}
+
+/* Translucent backdrop styling for overlay elements in hero on dark theme */
+.tp-hero-pro .tp-notification-menu {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2) !important;
+}
+
+.tp-hero-pro .tp-notification-item {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: none !important;
+  transition: background 0.2s, transform 0.2s !important;
+}
+
+.tp-hero-pro .tp-notification-item:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  transform: translateY(-2px) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+.tp-hero-pro .tp-notification-text {
+  color: #ffffff !important;
+}
+
+.tp-hero-pro .tp-menu-icon-btn {
+  background: linear-gradient(135deg, #1e6fbf, #0ea5e9) !important;
+  box-shadow: 0 10px 24px rgba(14, 165, 233, 0.25) !important;
+}
+
+.tp-hero-pro .tp-menu-icon-btn:hover {
+  box-shadow: 0 14px 28px rgba(14, 165, 233, 0.35) !important;
+}
+
+/* ══════════════════════════════════════════════
+   SHARED — Sidebar brand (desktop full sidebar)
+   ══════════════════════════════════════════════ */
+.tp-sidebar-brand {
+  border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.tp-sidebar-school {
+  color: #e2eaf4 !important;
+}
+
+/* ══════════════════════════════════════════════
+   SHARED — Hamburger button
+   ══════════════════════════════════════════════ */
+.tp-hamburger {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+}
+
+.tp-hamburger:hover {
+  background: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DESKTOP  ≥ 1024px  — Full sidebar (260px wide)
+   ═══════════════════════════════════════════════════════════════ */
+@media (min-width: 1024px) {
+
+  .tp-shell {
+    flex-direction: row;
+  }
+
+  /* Full sidebar */
+  .tp-sidebar {
+    display: flex !important;
+    flex-direction: column;
+    width: 260px !important;
+    min-width: 260px !important;
+    flex-shrink: 0;
+    min-height: 100vh;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.08) 0%, transparent 35%), linear-gradient(135deg, var(--ah-navy) 0%, var(--ah-navy-dark) 100%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+    box-shadow: 4px 0 24px rgba(13, 27, 46, 0.3) !important;
+    padding: 24px 16px !important;
+    z-index: 50;
+  }
+
+  .tp-sidebar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .tp-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 9999px;
+  }
+
+  .tp-sidebar-crest {
+    width: 44px !important;
+    height: 44px !important;
+    filter: drop-shadow(0 4px 12px rgba(14, 165, 233, 0.35)) !important;
+    flex-shrink: 0;
+  }
+
+  .tp-sidebar-nav {
+    gap: 4px !important;
+  }
+
+  .tp-sidebar-nav-item {
+    padding: 11px 14px !important;
+    border-radius: 12px !important;
+    border: none !important;
+    background: transparent !important;
+    color: var(--ah-sidebar-text) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.01em;
+    box-shadow: none !important;
+    transition: background 0.18s, color 0.18s, transform 0.18s, box-shadow 0.18s !important;
+  }
+
+  .tp-sidebar-nav-item svg {
+    opacity: 0.7;
+    transition: opacity 0.18s;
+  }
+
+  .tp-sidebar-nav-item:hover {
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+    border-color: #bfdbfe !important;
+    transform: translateX(3px) !important;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12) !important;
+  }
+
+  .tp-sidebar-nav-item:hover svg {
+    opacity: 1 !important;
+    color: #1d4ed8 !important;
+    stroke: #1d4ed8 !important;
+  }
+
+  .tp-sidebar-nav-item.active {
+    background: var(--ah-active-grad) !important;
+    color: #ffffff !important;
+    box-shadow: var(--ah-active-shadow) !important;
+    transform: none !important;
+    font-weight: 700 !important;
+  }
+
+  .tp-sidebar-nav-item.active svg {
+    opacity: 1;
+  }
+
+  .tp-sidebar-divider {
+    background: rgba(255, 255, 255, 0.1) !important;
+    margin: 16px 0 !important;
+  }
+
+  .tp-sidebar-signout {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 11px 14px !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(239, 68, 68, 0.25) !important;
+    background: rgba(239, 68, 68, 0.08) !important;
+    color: #fca5a5 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s !important;
+  }
+
+  .tp-sidebar-signout:hover {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: #fff !important;
+  }
+
+  .tp-main {
+    flex: 1;
+    min-width: 0;
+    background: var(--ah-shell-bg);
+    padding-left: 0 !important;
+  }
+
+  /* Topbar desktop */
+  .tp-topbar {
+    padding: 0 32px !important;
+    min-height: 68px;
+  }
+
+  /* Hero desktop */
+  .tp-hero {
+    margin: 24px 32px 0 !important;
+    padding: 32px 36px !important;
+    border-radius: 18px !important;
+    display: flex !important;
+  }
+
+  /* Grids */
+  .tp-cards-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    padding: 24px 32px 40px !important;
+    gap: 20px !important;
+  }
+
+  .tp-class-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    padding: 20px 32px 40px !important;
+    gap: 16px !important;
+  }
+
+  .tp-detail-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    padding: 20px 32px 40px !important;
+    gap: 16px !important;
+  }
+
+  .tp-profile-wrapper {
+    display: block !important;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+    max-width: 1000px !important;
+    margin: 0 auto !important;
+  }
+
+  .tp-profile-details-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 20px !important;
+    width: 100% !important;
+  }
+
+  .tp-student-roster-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    padding: 4px 32px 48px !important;
+  }
+
+  .sv-detail-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .sv-notice-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .tp-section-header {
+    padding: 24px 32px 0 !important;
+  }
+
+  .tp-roster-toolbar {
+    padding: 0 32px 18px !important;
+  }
+
+  .sv-content-area {
+    padding: 28px 32px 48px !important;
+  }
+
+  .tp-profile-page {
+    padding: 28px 32px !important;
+  }
+
+  /* Menu cards — column layout */
+  .tp-menu-card {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 14px !important;
+    padding: 22px 20px !important;
+  }
+
+  .tp-card-chevron {
+    display: none !important;
+  }
+
+  /* Tables */
+  .results-table,
+  .sv-table {
+    display: table !important;
+    overflow-x: visible !important;
+    white-space: normal !important;
+  }
+
+  /* Bottom nav hidden */
+  .tp-bottom-nav {
+    display: none !important;
+  }
+
+  .tp-hamburger {
+    display: none !important;
+  }
+}
+
+/* 1280px+ wider padding */
+@media (min-width: 1280px) {
+  .tp-sidebar {
+    width: 272px !important;
+    min-width: 272px !important;
+  }
+
+  .tp-topbar {
+    padding: 0 40px !important;
+  }
+
+  .tp-hero {
+    margin: 28px 40px 0 !important;
+    padding: 36px 44px !important;
+  }
+
+  .tp-section-header {
+    padding: 26px 40px 0 !important;
+  }
+
+  .tp-cards-grid {
+    padding: 28px 40px 48px !important;
+    gap: 22px !important;
+  }
+
+  .tp-class-grid {
+    padding: 24px 40px 48px !important;
+  }
+
+  .tp-detail-grid {
+    padding: 24px 40px 48px !important;
+    gap: 18px !important;
+  }
+
+  .tp-student-roster-grid {
+    padding: 4px 40px 52px !important;
+  }
+
+  .tp-roster-toolbar {
+    padding: 0 40px 20px !important;
+  }
+
+  .sv-content-area {
+    padding: 32px 40px 52px !important;
+  }
+
+  .tp-profile-page {
+    padding: 32px 40px !important;
+  }
+
+  .tp-greeting h1 {
+    font-size: 32px !important;
+  }
+}
+
+/* 1440px+ extra columns */
+@media (min-width: 1440px) {
+  .tp-cards-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .tp-class-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+
+  .tp-student-roster-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TABLET  640–1023px  — Slim icon-only sidebar (68px)
+   ═══════════════════════════════════════════════════════════════ */
+@media (min-width: 640px) and (max-width: 1023px) {
+
+  /* Shell: row layout with slim sidebar */
+  .tp-shell {
+    display: flex !important;
+    flex-direction: row !important;
+    min-height: 100dvh;
+  }
+
+  /* ── Slim icon sidebar ── */
+  .tp-sidebar {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    width: 68px !important;
+    min-width: 68px !important;
+    flex-shrink: 0 !important;
+    min-height: 100dvh;
+    height: 100dvh;
+    position: sticky;
+    top: 0;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.08) 0%, transparent 35%), linear-gradient(135deg, var(--ah-navy) 0%, var(--ah-navy-dark) 100%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+    box-shadow: 4px 0 20px rgba(13, 27, 46, 0.3) !important;
+    padding: 20px 8px 16px !important;
+    z-index: 50;
+  }
+
+  /* Brand: just the crest (logo) */
+  .tp-sidebar-brand {
+    flex-direction: column !important;
+    align-items: center !important;
+    padding-bottom: 16px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    margin-bottom: 16px !important;
+    gap: 0 !important;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tp-sidebar-crest {
+    width: 38px !important;
+    height: 38px !important;
+    filter: drop-shadow(0 4px 10px rgba(14, 165, 233, 0.3)) !important;
+  }
+
+  /* Hide school name text on tablet slim sidebar */
+  .tp-sidebar-school {
+    display: none !important;
+  }
+
+  /* Nav: centered icon-only buttons */
+  .tp-sidebar-nav {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 6px !important;
+    width: 100% !important;
+    flex: 1;
+  }
+
+  .tp-sidebar-nav-item {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 48px !important;
+    height: 48px !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
+    border: none !important;
+    background: transparent !important;
+    color: var(--ah-sidebar-text) !important;
+    font-size: 0 !important;
+    /* Hide text, show only icon */
+    gap: 0 !important;
+    box-shadow: none !important;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s, box-shadow 0.18s, transform 0.15s !important;
+    position: relative;
+  }
+
+  /* Show tooltip on hover */
+  .tp-sidebar-nav-item::after {
+    content: attr(title);
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: #0f172a;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 200;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.24);
+  }
+
+  .tp-sidebar-nav-item:hover::after {
+    opacity: 1;
+  }
+
+  .tp-sidebar-nav-item svg {
+    opacity: 0.65;
+    width: 22px !important;
+    height: 22px !important;
+    flex-shrink: 0;
+  }
+
+  .tp-sidebar-nav-item:hover {
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+    border-color: #bfdbfe !important;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12) !important;
+    transform: scale(1.05) !important;
+  }
+
+  .tp-sidebar-nav-item:hover svg {
+    opacity: 1 !important;
+    color: #1d4ed8 !important;
+    stroke: #1d4ed8 !important;
+  }
+
+  .tp-sidebar-nav-item.active {
+    background: var(--ah-active-grad) !important;
+    box-shadow: var(--ah-active-shadow) !important;
+    transform: scale(1.0) !important;
+  }
+
+  .tp-sidebar-nav-item.active svg {
+    opacity: 1;
+    stroke: #fff !important;
+    color: #fff !important;
+  }
+
+  /* Divider */
+  .tp-sidebar-divider {
+    background: rgba(255, 255, 255, 0.1) !important;
+    margin: 12px 0 !important;
+    width: 40px !important;
+  }
+
+  /* Signout: icon only */
+  .tp-sidebar-signout {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 48px !important;
+    height: 48px !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
+    border: 1px solid rgba(239, 68, 68, 0.25) !important;
+    background: rgba(239, 68, 68, 0.1) !important;
+    color: #fca5a5 !important;
+    font-size: 0 !important;
+    gap: 0 !important;
+    /* Eliminate layout gap for hidden text node */
+    cursor: pointer;
+    transition: background 0.18s !important;
+    flex-shrink: 0;
+    margin-top: auto;
+  }
+
+  .tp-sidebar-signout:hover {
+    background: rgba(239, 68, 68, 0.22) !important;
+    color: #fff !important;
+  }
+
+  .tp-sidebar-signout svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  /* Hide user info and copyright/footer blocks on slim sidebar */
+  .tp-sidebar-divider~div {
+    display: none !important;
+  }
+
+  /* ── Main content ── */
+  .tp-main {
+    flex: 1 !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    overflow-x: hidden;
+    background: var(--ah-shell-bg);
+    padding: 0 !important;
+  }
+
+  /* Topbar on tablet */
+  .tp-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    padding: 0 clamp(14px, 3vw, 28px) !important;
+    min-height: 62px;
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* Hide hamburger on tablet (sidebar is visible) */
+  .tp-hamburger {
+    display: none !important;
+  }
+
+  /* Bottom nav hidden on tablet */
+  .tp-bottom-nav {
+    display: none !important;
+  }
+
+  /* Hero on tablet */
+  .tp-hero,
+  .tp-hero-pro {
+    margin: 16px clamp(14px, 3vw, 24px) 0 !important;
+    padding: 22px 24px !important;
+    border-radius: 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 20px !important;
+  }
+
+  .tp-greeting {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    align-items: flex-start !important;
+    text-align: left !important;
+  }
+
+  .tp-greeting h1 {
+    font-size: clamp(20px, 3vw, 26px) !important;
+    margin: 0 0 6px !important;
+  }
+
+  .tp-hero-pro .tp-notification-menu {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.4fr) minmax(220px, .8fr) !important;
+    gap: 12px !important;
+    padding: 16px !important;
+  }
+
+  .tp-school-brand,
+  .tp-silhouette-wrap {
+    display: none !important;
+  }
+
+  /* Section headers */
+  .tp-section-header {
+    padding: 18px clamp(14px, 3vw, 24px) 0 !important;
+  }
+
+  /* Grids — 2 column on tablet */
+  .tp-cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    padding: 16px clamp(14px, 3vw, 24px) 40px !important;
+    gap: 14px !important;
+  }
+
+  .tp-class-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    padding: 14px clamp(14px, 3vw, 24px) 40px !important;
+    gap: 12px !important;
+  }
+
+  .tp-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    padding: 14px clamp(14px, 3vw, 24px) 40px !important;
+    gap: 12px !important;
+  }
+
+  .tp-student-roster-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    padding: 4px clamp(14px, 3vw, 24px) 40px !important;
+  }
+
+  .tp-roster-toolbar {
+    padding: 0 clamp(14px, 3vw, 24px) 14px !important;
+  }
+
+  /* Card layout on tablet — row */
+  .tp-menu-card {
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 14px !important;
+    padding: 16px !important;
+  }
+
+  .tp-card-chevron {
+    display: flex !important;
+    color: var(--ah-text-muted) !important;
+  }
+
+  /* Student view */
+  .sv-content-area {
+    padding: 18px clamp(14px, 3vw, 24px) 40px !important;
+  }
+
+  .sv-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .sv-notice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .sv-calendar-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Tables on tablet — scrollable */
+  .results-table,
+  .sv-table {
+    display: block !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+  }
+
+  /* Profile page */
+  .tp-profile-page {
+    padding: 18px clamp(14px, 3vw, 24px) !important;
+  }
+
+  .tp-profile-details-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* 800-1023px: 3 column grids on wider tablets */
+@media (min-width: 800px) and (max-width: 1023px) {
+  .tp-class-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .tp-cards-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .tp-student-roster-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .sv-notice-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE  < 640px  — Full navy drawer + bottom nav
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 639px) {
+
+  .tp-shell {
+    display: block !important;
+    background: var(--ah-shell-bg) !important;
+  }
+
+  /* Hide sidebar entirely on mobile */
+  .tp-sidebar {
+    display: none !important;
+  }
+
+  /* Show hamburger */
+  .tp-hamburger {
+    display: inline-flex !important;
+  }
+
+  /* Main content */
+  .tp-main {
+    width: 100% !important;
+    padding: 0 !important;
+  }
+
+  /* Topbar on mobile */
+  .tp-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    min-height: 60px;
+    display: flex !important;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px !important;
+  }
+
+  /* Hero on mobile */
+  .tp-hero,
+  .tp-hero-pro {
+    margin: 12px 14px 0 !important;
+    padding: 18px 16px !important;
+    border-radius: 14px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .tp-greeting {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    align-items: flex-start !important;
+    text-align: left !important;
+  }
+
+  .tp-greeting h1 {
+    font-size: 20px !important;
+    margin: 0 0 6px !important;
+  }
+
+  .tp-greeting p {
+    font-size: 13px !important;
+  }
+
+  .tp-hero-pro .tp-notification-menu {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    padding: 14px !important;
+  }
+
+  /* Section header */
+  .tp-section-header {
+    padding: 14px 14px 0 !important;
+  }
+
+  /* Bottom padding for bottom nav */
+  .tp-cards-grid,
+  .tp-class-grid,
+  .tp-detail-grid,
+  .tp-student-roster-grid {
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .sv-content-area {
+    padding: 14px 14px calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* 1 col grids */
+  .tp-cards-grid {
+    grid-template-columns: 1fr !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  .tp-class-grid {
+    grid-template-columns: 1fr 1fr !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  .tp-detail-grid {
+    grid-template-columns: 1fr !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  .tp-student-roster-grid {
+    grid-template-columns: 1fr !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  .tp-roster-toolbar {
+    padding: 0 14px 12px !important;
+  }
+
+  .sv-detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sv-notice-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .tp-section-title {
+    font-size: 20px !important;
+  }
+
+  .sv-page-title {
+    font-size: 20px !important;
+  }
+
+  /* Card row on mobile */
+  .tp-menu-card {
+    flex-direction: row !important;
+    padding: 14px !important;
+    gap: 12px !important;
+  }
+
+  /* Tables scrollable */
+  .results-table,
+  .sv-table {
+    display: block !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Profile */
+  .tp-profile-page {
+    padding: 14px !important;
+  }
+
+  /* Bottom nav show & navy styled */
+  .tp-bottom-nav {
+    display: flex !important;
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    border-radius: 20px !important;
+    overflow: hidden;
+    z-index: 80;
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOGIN PAGE — All sizes responsive
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 639px) {
+  .login-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px 16px 16px !important;
+    gap: 4px;
+  }
+
+  .login-header-right {
+    align-items: flex-start;
+  }
+
+  .login-card {
+    width: 100%;
+    border-radius: 20px !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MODALS — All sizes
+   ═══════════════════════════════════════════════════════════════ */
+.tp-modal-overlay {
+  background: rgba(15, 23, 42, 0.65) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.tp-modal,
+.es-modal,
+.tp-confirm-modal {
+  border-radius: 18px !important;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22) !important;
+}
+
+@media (max-width: 639px) {
+  .tp-modal-overlay {
+    align-items: flex-end !important;
+    padding: 10px !important;
+  }
+
+  .tp-modal,
+  .es-modal {
+    border-radius: 18px 18px 12px 12px !important;
+    max-height: 92dvh !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TOUCH DEVICE — disable hover transforms
+   ═══════════════════════════════════════════════════════════════ */
+@media (hover: none) {
+
+  .tp-menu-card:hover,
+  .tp-class-card:hover,
+  .tp-student-roster-card:hover {
+    transform: none !important;
+  }
+
+  .tp-sidebar-nav-item:hover {
+    transform: none !important;
+  }
+}
