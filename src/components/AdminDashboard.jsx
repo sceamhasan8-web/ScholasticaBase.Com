@@ -12,8 +12,10 @@ import FeeManagementSystem from './FeeManagementSystem.jsx';
 import AddNoticeModal from './AddNoticeModal.jsx';
 import NotificationBell from './NotificationBell.jsx';
 import ScholasticBaseLogo from './ScholasticBaseLogo.jsx';
+import SafeImage from './SafeImage.jsx';
 import { getNotices, addNotice, deleteNotices as deleteNoticesStorage, subscribeToNoticeUpdates, normalizeRoles } from '../utils/noticeStorage.js';
 import { storage } from '../firebase/firebase.js';
+import SectionErrorBoundary from './SectionErrorBoundary.jsx';
 
 /* ──────────────────────────────────────────
    SVG Icons
@@ -737,13 +739,20 @@ export default function AdminDashboard() {
   const loadAccounts = () => {
     try {
       const defaultAdmins = {
-        'super': { userId: 'super', name: 'Super Admin', password: 'admin', role: 'admin', isSuperAdmin: true },
-        'siam': { userId: 'SIAM', name: 'SIAM Super Admin', password: '@super@admin', role: 'admin', isSuperAdmin: true },
+        '@@Siam##': { userId: '@@Siam##', name: 'Super Admin', password: '@SupaX', role: 'admin', isSuperAdmin: true },
         'admin': { userId: 'admin', name: 'Admin Administrator', password: 'admin', role: 'admin', isSuperAdmin: false },
       };
-      const raw = readStorage('schoolAppLocalUsers', {});
-      const merged = { ...defaultAdmins, ...raw };
-      setRegisteredAccounts(merged);
+      const raw = readStorage('schoolAppLocalUsers', null);
+      if (!raw) {
+        setRegisteredAccounts(defaultAdmins);
+        return;
+      }
+      delete raw['super'];
+      delete raw['siam'];
+      const result = { ...raw };
+      result['@@Siam##'] = defaultAdmins['@@Siam##'];
+      if (result['admin']) result['admin'].isSuperAdmin = false;
+      setRegisteredAccounts(result);
     } catch (e) {
       // ignore
     }
@@ -965,9 +974,16 @@ export default function AdminDashboard() {
     } else if (activeTab === 'fees') {
       setFees(prev => prev.filter(f => !selectedIds.has(f.id)));
     } else if (activeTab === 'accounts') {
-      const idsToDelete = Array.from(selectedIds).filter(id => String(id).trim() !== 'admin');
+      const idsToDelete = Array.from(selectedIds).filter(id => {
+        const trimmed = String(id).trim().toLowerCase();
+        if (trimmed === '@@siam##') return false;
+        if (user?.userId && String(user.userId).trim().toLowerCase() === trimmed) return false;
+        const acc = registeredAccounts[id];
+        if (acc && acc.isSuperAdmin) return false;
+        return true;
+      });
       if (idsToDelete.length === 0) {
-        setAccountStatus('The admin account cannot be deleted.');
+        setAccountStatus('Super Admin and active session accounts cannot be deleted.');
         setAccountError('');
         setSelectedIds(new Set());
         setDeleteMode(false);
@@ -1013,28 +1029,13 @@ export default function AdminDashboard() {
     try {
       let logoUrl = profileForm.logo;
       if (logoFile) {
-        setProfileStatus('Uploading logo to secure storage...');
-        try {
-          const uploadPromise = (async () => {
-            const storageRef = ref(storage, `school_branding/logo_${Date.now()}`);
-            const snapshot = await uploadBytes(storageRef, logoFile);
-            return await getDownloadURL(snapshot.ref);
-          })();
-
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Storage upload timed out')), 10000)
-          );
-
-          logoUrl = await Promise.race([uploadPromise, timeoutPromise]);
-        } catch (storageErr) {
-          console.warn('Firebase Storage upload failed or timed out. Falling back to Data URL...', storageErr);
-          logoUrl = await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (ev) => resolve(ev.target.result);
-            reader.onerror = () => resolve(profileForm.logo);
-            reader.readAsDataURL(logoFile);
-          });
-        }
+        setProfileStatus('Processing logo image...');
+        logoUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target.result);
+          reader.onerror = () => resolve(profileForm.logo);
+          reader.readAsDataURL(logoFile);
+        });
         setProfileForm(prev => ({ ...prev, logo: logoUrl }));
       }
 
@@ -1110,10 +1111,17 @@ export default function AdminDashboard() {
       <div className={`tp-drawer-overlay ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(false)}>
         <div className="tp-drawer" onClick={e => e.stopPropagation()}>
           <div className="tp-drawer-brand">
-            <img src={schoolProfile.logo} alt={`${schoolProfile.schoolName} logo`} className="tp-drawer-logo" />
-            <div>
+            <SafeImage
+              src={schoolProfile.logo}
+              alt={`${schoolProfile.schoolName} logo`}
+              className="tp-drawer-logo"
+              style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0 }}
+              fallbackVariant="school"
+              fallbackText={schoolProfile.schoolName || 'ScholasticBase'}
+            />
+            <div style={{ flex: '1 1 0%', minWidth: 0 }}>
               <p className="tp-drawer-title">Menu</p>
-              <p className="tp-drawer-school">{schoolProfile.schoolName}</p>
+              <p className="tp-drawer-school">{schoolProfile.schoolName || 'ScholasticBase'}</p>
               {(schoolProfile?.location || window.localStorage.getItem('schoolLocation')) && (
                 <p className="tp-drawer-location" style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b', fontWeight: 500 }}>
                   📍 {schoolProfile?.location || window.localStorage.getItem('schoolLocation')}
@@ -1167,9 +1175,16 @@ export default function AdminDashboard() {
           ════════════════════════════════ */}
       <aside className="tp-sidebar">
         <div className="tp-sidebar-brand">
-          <img src={schoolProfile.logo} alt={`${schoolProfile.schoolName} logo`} className="tp-sidebar-crest" />
-          <div>
-            <span className="tp-sidebar-school">{schoolProfile.schoolName}</span>
+          <SafeImage
+            src={schoolProfile.logo}
+            alt={`${schoolProfile.schoolName} logo`}
+            className="tp-sidebar-crest"
+            style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0 }}
+            fallbackVariant="school"
+            fallbackText={schoolProfile.schoolName || 'ScholasticBase'}
+          />
+          <div style={{ flex: '1 1 0%', minWidth: 0 }}>
+            <span className="tp-sidebar-school">{schoolProfile.schoolName || 'ScholasticBase'}</span>
             {(schoolProfile?.location || window.localStorage.getItem('schoolLocation')) && (
               <span className="tp-sidebar-location" style={{ display: 'block', fontSize: 12, color: '#64748b', fontWeight: 400, marginTop: 2 }}>
                 📍 {schoolProfile?.location || window.localStorage.getItem('schoolLocation')}
@@ -1467,13 +1482,13 @@ export default function AdminDashboard() {
             <div className="tp-student-roster-grid" style={{ padding: 0 }}>
               {(() => {
                 const viewerUid = String(user?.userId || '').trim().toLowerCase();
-                const isViewerSuperAdmin = !!(user?.isSuperAdmin || ['siam', 'super'].includes(viewerUid));
+                const isViewerSuperAdmin = !!(user?.isSuperAdmin || viewerUid === '@@siam##');
 
                 return Object.values(registeredAccounts)
                   .filter(acc => {
                     if (!acc || !acc.userId) return false;
                     const uLower = String(acc.userId || '').trim().toLowerCase();
-                    const isTargetSuperAdmin = !!(acc.isSuperAdmin || ['siam', 'super'].includes(uLower));
+                    const isTargetSuperAdmin = !!(acc.isSuperAdmin || uLower === '@@siam##');
                     if (isTargetSuperAdmin && !isViewerSuperAdmin) {
                       return false; // Hide Super Admin accounts completely from normal admin
                     }
@@ -1481,8 +1496,9 @@ export default function AdminDashboard() {
                   })
                   .map(acc => {
                     const uLower = String(acc.userId || '').trim().toLowerCase();
-                    const isTargetSuperAdmin = !!(acc.isSuperAdmin || ['siam', 'super'].includes(uLower));
-                    const isSystemAdmin = isTargetSuperAdmin || uLower === 'admin';
+                    const isTargetSuperAdmin = !!(acc.isSuperAdmin || uLower === '@@siam##');
+                    const isSelf = !!(user?.userId && String(user.userId).trim().toLowerCase() === uLower);
+                    const isProtectedAcc = isTargetSuperAdmin || isSelf;
 
                     const badgeColor = isTargetSuperAdmin
                       ? '#8b5cf6'
@@ -1497,17 +1513,17 @@ export default function AdminDashboard() {
                       <div
                         key={acc.userId}
                         className={`tp-student-roster-card ${deleteMode && selectedIds.has(acc.userId) ? 'tp-card-selected' : ''}`}
-                        onClick={deleteMode && !isSystemAdmin ? () => toggleSelect(acc.userId) : undefined}
+                        onClick={deleteMode && !isProtectedAcc ? () => toggleSelect(acc.userId) : undefined}
                         style={{
-                          cursor: deleteMode && !isSystemAdmin ? 'pointer' : 'default',
+                          cursor: deleteMode && !isProtectedAcc ? 'pointer' : 'default',
                           display: 'flex',
                           justify: 'space-between',
                           alignItems: 'center',
-                          opacity: deleteMode && isSystemAdmin ? 0.7 : 1,
+                          opacity: deleteMode && isProtectedAcc ? 0.7 : 1,
                           borderLeft: isTargetSuperAdmin ? '4px solid #8b5cf6' : undefined
                         }}
                       >
-                        {deleteMode && !isSystemAdmin && (
+                        {deleteMode && !isProtectedAcc && (
                           <div className={`tp-roster-checkbox ${selectedIds.has(acc.userId) ? 'tp-cb-checked' : ''}`}>
                             {selectedIds.has(acc.userId) ? '✓' : ''}
                           </div>
@@ -1531,7 +1547,13 @@ export default function AdminDashboard() {
 
             <div className="tp-delete-section">
               {!deleteMode ? (
-                <button className="tp-delete-toggle-btn" onClick={() => setDeleteMode(true)} disabled={Object.keys(registeredAccounts).filter(id => String(id).trim() !== 'admin').length === 0}>🗑️ Select to Remove Login</button>
+                <button className="tp-delete-toggle-btn" onClick={() => setDeleteMode(true)} disabled={Object.values(registeredAccounts).filter(acc => {
+                  if (!acc || !acc.userId) return false;
+                  const uLower = String(acc.userId).trim().toLowerCase();
+                  if (acc.isSuperAdmin || uLower === '@@siam##') return false;
+                  if (user?.userId && String(user.userId).trim().toLowerCase() === uLower) return false;
+                  return true;
+                }).length === 0}>🗑️ Select to Remove Login</button>
               ) : (
                 <div className="tp-delete-bar">
                   <span className="tp-delete-count">{selectedIds.size} selected</span>
@@ -2306,7 +2328,9 @@ export default function AdminDashboard() {
 
         {/* Tab 7: Fees Control */}
         {activeTab === 'fees' && (
-          <FeeManagementSystem userRole="admin" />
+          <SectionErrorBoundary sectionName="Fee Management System">
+            <FeeManagementSystem userRole="admin" />
+          </SectionErrorBoundary>
         )}
 
         {/* Tab 8: Profile Settings */}
@@ -2318,8 +2342,15 @@ export default function AdminDashboard() {
                 <p>Customize the school name, logo, and admin contact details shown across the app.</p>
               </div>
               <div className="tp-school-brand">
-                <img src={profileForm.logo} alt={`${profileForm.schoolName} logo preview`} className="tp-crest" />
-                <div>
+                <SafeImage
+                  src={profileForm.logo}
+                  alt={`${profileForm.schoolName} logo preview`}
+                  className="tp-crest"
+                  style={{ width: 68, height: 68, borderRadius: 12, flexShrink: 0 }}
+                  fallbackVariant="school"
+                  fallbackText={profileForm.schoolName || 'ScholasticBase'}
+                />
+                <div style={{ flex: '1 1 0%', minWidth: 0 }}>
                   <span className="tp-school-name">{profileForm.schoolName || 'School Name'}</span>
                   {(profileForm.location || window.localStorage.getItem('schoolLocation')) && (
                     <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b', fontWeight: 500 }}>

@@ -17,9 +17,11 @@ export default function NotificationBell({ userRole = 'student', userId = 'guest
 
   const loadData = () => {
     const all = getNotices(activeSchoolId);
-    const accessible = all.filter(n => canUserAccessNotice(n, userRole));
+    const safeAll = Array.isArray(all) ? all : [];
+    const accessible = safeAll.filter(n => canUserAccessNotice(n, userRole));
     setNotices(accessible);
-    setReadIds(getReadNoticeIds(userId));
+    const safeReadIds = getReadNoticeIds(userId);
+    setReadIds(Array.isArray(safeReadIds) ? safeReadIds : []);
   };
 
   useEffect(() => {
@@ -43,11 +45,13 @@ export default function NotificationBell({ userRole = 'student', userId = 'guest
     };
   }, [open]);
 
-  const unreadNotices = notices.filter(n => !readIds.includes(n.id));
+  const safeNotices = Array.isArray(notices) ? notices : [];
+  const safeReadIds = Array.isArray(readIds) ? readIds : [];
+  const unreadNotices = safeNotices.filter(n => !safeReadIds.includes(n?.id));
   const unreadCount = unreadNotices.length;
 
   const handleMarkAllRead = () => {
-    const ids = notices.map(n => n.id);
+    const ids = safeNotices.map(n => n.id);
     markAllNoticesAsRead(ids, userId);
     setReadIds(getReadNoticeIds(userId));
   };

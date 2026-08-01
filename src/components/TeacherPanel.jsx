@@ -13,6 +13,8 @@ import { notifySchoolDataChanged } from '../utils/schoolData.js';
 import FeeManagementSystem from './FeeManagementSystem.jsx';
 import { useAlert } from '../hooks/useAlert.js';
 import ScholasticBaseLogo from './ScholasticBaseLogo.jsx';
+import SafeImage from './SafeImage.jsx';
+import SectionErrorBoundary from './SectionErrorBoundary.jsx';
 
 /* ──────────────────────────────────────────
    SVG Icon Components
@@ -2337,9 +2339,17 @@ function DetailContent({
     />
   );
 
-  if (section === 'exam') return <ExamResultView classes={visibleClassEntries} readOnly={isReadOnly} />;
+  if (section === 'exam') return (
+    <SectionErrorBoundary sectionName="Exam Results">
+      <ExamResultView classes={visibleClassEntries} readOnly={isReadOnly} />
+    </SectionErrorBoundary>
+  );
 
-  if (section === 'result-entry') return <ResultEntry classes={visibleClassEntries} currentTeacherProfile={currentTeacherProfile} currentTeacherAssignments={teacherAssignments} readOnly={isReadOnly} />;
+  if (section === 'result-entry') return (
+    <SectionErrorBoundary sectionName="Result Entry">
+      <ResultEntry classes={visibleClassEntries} currentTeacherProfile={currentTeacherProfile} currentTeacherAssignments={teacherAssignments} readOnly={isReadOnly} />
+    </SectionErrorBoundary>
+  );
 
   if (section === 'routine') {
     // ✅ Ensure timeSlots is always an array
@@ -2348,21 +2358,25 @@ function DetailContent({
       : ["৯:০০-९:५०", "९:५०-१०:३५", "१०:३५-११:२०", "११:२०-१२:०५", "१२:०५-१२:५०", "१:३०-২:১০", "২:১০-২:৫০"];
 
     return (
-      <SchoolRoutineManager
-        classes={classes}
-        teachers={teachers}
-        teacherRoutines={teacherRoutines}
-        onSaveTeacherRoutine={onSaveTeacherRoutine}
-        onSaveClassRoutine={onSaveClassRoutine}
-        readOnly={isReadOnly}
-        timeSlots={safeTimeSlots}
-        onSaveTimeSlots={onSaveTimeSlots}
-      />
+      <SectionErrorBoundary sectionName="School Routine">
+        <SchoolRoutineManager
+          classes={classes}
+          teachers={teachers}
+          teacherRoutines={teacherRoutines}
+          onSaveTeacherRoutine={onSaveTeacherRoutine}
+          onSaveClassRoutine={onSaveClassRoutine}
+          readOnly={isReadOnly}
+          timeSlots={safeTimeSlots}
+          onSaveTimeSlots={onSaveTimeSlots}
+        />
+      </SectionErrorBoundary>
     );
   }
 
   if (section === 'fees') return (
-    <FeeManagementSystem userRole={isReadOnly ? 'guest' : isTeacherRole ? 'teacher' : 'admin'} />
+    <SectionErrorBoundary sectionName="Fee Management">
+      <FeeManagementSystem userRole={isReadOnly ? 'guest' : isTeacherRole ? 'teacher' : 'admin'} />
+    </SectionErrorBoundary>
   );
 
   return null;
@@ -3127,12 +3141,15 @@ export default function TeacherPanel() {
       <div className={`tp-drawer-overlay ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(false)}>
         <div className="tp-drawer" onClick={(e) => e.stopPropagation()}>
           <div className="tp-drawer-brand">
-            {schoolProfile.logo ? (
-              <img src={schoolProfile.logo} alt={`${schoolProfile.schoolName} logo`} className="tp-drawer-logo" />
-            ) : (
-              <ScholasticBaseLogo variant="mark" size={32} />
-            )}
-            <div>
+            <SafeImage
+              src={schoolProfile.logo}
+              alt={`${schoolProfile.schoolName} logo`}
+              className="tp-drawer-logo"
+              style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0 }}
+              fallbackVariant="school"
+              fallbackText={schoolProfile.schoolName || 'ScholasticBase'}
+            />
+            <div style={{ flex: '1 1 0%', minWidth: 0 }}>
               <p className="tp-drawer-title">Menu</p>
               <p className="tp-drawer-school">{schoolProfile.schoolName || 'ScholasticBase'}</p>
               {(schoolProfile?.location || window.localStorage.getItem('schoolLocation')) && (
@@ -3195,12 +3212,15 @@ export default function TeacherPanel() {
       <aside className="tp-sidebar">
         {/* Brand */}
         <div className="tp-sidebar-brand">
-          {schoolProfile.logo ? (
-            <img src={schoolProfile.logo} alt={`${schoolProfile.schoolName} logo`} className="tp-sidebar-crest" />
-          ) : (
-            <ScholasticBaseLogo variant="mark" size={32} />
-          )}
-          <div>
+          <SafeImage
+            src={schoolProfile.logo}
+            alt={`${schoolProfile.schoolName} logo`}
+            className="tp-sidebar-crest"
+            style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0 }}
+            fallbackVariant="school"
+            fallbackText={schoolProfile.schoolName || 'ScholasticBase'}
+          />
+          <div style={{ flex: '1 1 0%', minWidth: 0 }}>
             <span className="tp-sidebar-school">{schoolProfile.schoolName || 'ScholasticBase'}</span>
             {(schoolProfile?.location || window.localStorage.getItem('schoolLocation')) && (
               <span className="tp-sidebar-location" style={{ display: 'block', fontSize: 12, color: '#64748b', fontWeight: 400, marginTop: 2 }}>

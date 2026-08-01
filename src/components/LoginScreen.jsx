@@ -6,6 +6,7 @@ import schoolHallway from '../school_hallway.png';
 import defaultLogo from '../greenfield_logo.png';
 import { useSchoolProfile } from '../context/SchoolProfileContext.jsx';
 import { MotivationalQuote } from './MotivationalQuote.jsx';
+import SafeImage from './SafeImage.jsx';
 import ScholasticBaseLogo from './ScholasticBaseLogo.jsx';
 
 export default function LoginScreen() {
@@ -126,9 +127,18 @@ export default function LoginScreen() {
       <header className="login-header">
         <div className="login-header-left">
           {schoolProfile?.logo ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <img src={schoolProfile.logo} alt={`${schoolProfile.schoolName || 'School'} logo`} className="login-logo" />
-              <span className="login-school-name">{schoolProfile.schoolName || 'ScholasticBase'}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, width: '100%' }}>
+              <SafeImage
+                src={schoolProfile.logo}
+                alt={`${schoolProfile.schoolName || 'School'} logo`}
+                className="login-logo"
+                style={{ width: 44, height: 44, borderRadius: 8, flexShrink: 0 }}
+                fallbackVariant="school"
+                fallbackText={schoolProfile.schoolName || 'ScholasticBase'}
+              />
+              <span className="login-school-name" style={{ flex: '1 1 0%', minWidth: 0, overflowWrap: 'break-word', wordBreak: 'normal' }}>
+                {schoolProfile.schoolName || 'ScholasticBase'}
+              </span>
             </div>
           ) : (
             <ScholasticBaseLogo variant="horizontal" size={40} showTagline={true} />

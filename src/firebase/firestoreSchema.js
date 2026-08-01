@@ -27,6 +27,7 @@ export const COLLECTIONS = {
     grades: 'grades',
     positions: 'positions',
     schoolData: 'schoolData',
+    schools: 'schools',
 };
 
 export const SCHOOL_PROFILE_DOC_ID = 'schoolProfile';
@@ -69,6 +70,7 @@ export const refs = {
     result: (resultId) => doc(db, COLLECTIONS.results, cleanId(resultId, 'result')),
     grade: (gradeId) => doc(db, COLLECTIONS.grades, cleanId(gradeId, 'grade')),
     position: (positionId) => doc(db, COLLECTIONS.positions, cleanId(positionId, 'position')),
+    school: (schoolId) => doc(db, COLLECTIONS.schools, String(schoolId || 'PROGGA_DEFAULT').trim()),
     schoolProfile: () => doc(db, COLLECTIONS.schoolData, SCHOOL_PROFILE_DOC_ID),
     teacherPanel: () => doc(db, COLLECTIONS.schoolData, TEACHER_PANEL_DOC_ID),
 };
@@ -84,12 +86,15 @@ export const getDocumentData = async (docRef) => {
     return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
 };
 
+let anonAuthAttempted = false;
+
 export const ensureFirebaseAuth = async () => {
-    if (auth && !auth.currentUser) {
+    if (auth && !auth.currentUser && !anonAuthAttempted) {
+        anonAuthAttempted = true;
         try {
             await signInAnonymously(auth);
         } catch (anonErr) {
-            console.warn('[Firebase Auth] Anonymous auth initialization warning:', anonErr?.message || anonErr);
+            // Anonymous auth disabled in Firebase Console — suppress repeated network request retries
         }
     }
     return auth?.currentUser;

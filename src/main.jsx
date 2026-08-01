@@ -48,7 +48,15 @@ if (typeof window !== 'undefined') {
 
 console.log('🚀 [STAGE 1/6] main.jsx script started executing');
 
+let isAppMounted = false;
+
 function renderFatalErrorUI(title, message, stack) {
+  // Only overwrite DOM if app has NOT mounted yet
+  if (isAppMounted) {
+    console.warn(`[Safe Error Guard] Suppressed fatal DOM replacement after mount for: ${title} - ${message}`);
+    return;
+  }
+
   const rootEl = document.getElementById('root') || document.body;
   if (!rootEl) return;
 
@@ -77,7 +85,7 @@ function renderFatalErrorUI(title, message, stack) {
           <span>⚠️</span> ${title}
         </h2>
         <p style="color: #94a3b8; font-size: 0.95rem; line-height: 1.5;">
-          An uncaught JavaScript error occurred before or during application initialization:
+          An uncaught JavaScript error occurred during application initialization:
         </p>
         <div style="
           background-color: #0f172a;
@@ -122,11 +130,13 @@ window.addEventListener('error', (event) => {
     return;
   }
   console.error('🚨 Global Error Listener Caught:', event.error || event.message);
-  renderFatalErrorUI(
-    'Pre-Mount Execution Error',
-    errorMsg,
-    event.error && event.error.stack
-  );
+  if (!isAppMounted) {
+    renderFatalErrorUI(
+      'Pre-Mount Execution Error',
+      errorMsg,
+      event.error && event.error.stack
+    );
+  }
 });
 
 window.addEventListener('unhandledrejection', (event) => {
@@ -136,8 +146,10 @@ window.addEventListener('unhandledrejection', (event) => {
     return;
   }
   console.error('🚨 Unhandled Promise Rejection Listener Caught:', event.reason);
-  const stack = event.reason?.stack;
-  renderFatalErrorUI('Unhandled Async Rejection', msg, stack);
+  if (!isAppMounted) {
+    const stack = event.reason?.stack;
+    renderFatalErrorUI('Unhandled Async Rejection', msg, stack);
+  }
 });
 
 try {
@@ -158,6 +170,7 @@ try {
     </React.StrictMode>
   );
 
+  isAppMounted = true;
   console.log('✅ [STAGE 6/6] ReactDOM.createRoot initiated successfully');
   registerServiceWorker();
 } catch (err) {

@@ -2156,10 +2156,84 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
           showWatermark={false}
           hideDefaultHeader={true}
           showFooter={false}
+          showTriggerButton={false}
         >
-          <div className="transcript-container" style={{ position: 'relative', overflow: 'hidden', padding: '28px 32px', background: '#faf8f5', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
-            {/* Top Red Bar */}
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: '#ef4444' }} />
+          <div
+            className="transcript-container"
+            style={{
+              position: 'relative',
+              overflow: 'hidden',
+              padding: '24px 28px',
+              backgroundColor: '#FFF2F2',
+              background: '#FFF2F2',
+              border: '4px double #1e3a8a',
+              outline: '2px solid #b91c1c',
+              outlineOffset: '-7px',
+              borderRadius: '14px',
+              boxShadow: '0 12px 45px rgba(30, 58, 138, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.6)',
+            }}
+          >
+            {/* Top Navy/Crimson Accent Bar */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'linear-gradient(90deg, #1e3a8a, #b91c1c, #1e3a8a)' }} />
+
+            {/* Inner Decorative Accent Frame */}
+            <div
+              className="transcript-inner-border"
+              style={{
+                position: 'absolute',
+                top: '12px',
+                left: '12px',
+                right: '12px',
+                bottom: '12px',
+                border: '1px dashed #1e3a8a',
+                borderRadius: '10px',
+                pointerEvents: 'none',
+                zIndex: 0,
+                opacity: 0.4,
+              }}
+            />
+
+            {/* Ornate Corner Flourishes */}
+            <svg
+              style={{ position: 'absolute', top: 14, left: 14, width: 32, height: 32, color: '#1e3a8a', opacity: 0.85, pointerEvents: 'none', zIndex: 1 }}
+              viewBox="0 0 32 32"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path d="M2 30V10C2 5.58172 5.58172 2 10 2H30" strokeWidth="2.5" strokeLinecap="round" />
+              <path d="M7 25V12C7 9.23858 9.23858 7 12 7H25" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 2" />
+              <circle cx="12" cy="12" r="3" fill="#b91c1c" stroke="none" />
+            </svg>
+            <svg
+              style={{ position: 'absolute', top: 14, right: 14, width: 32, height: 32, color: '#1e3a8a', opacity: 0.85, pointerEvents: 'none', zIndex: 1 }}
+              viewBox="0 0 32 32"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path d="M30 30V10C30 5.58172 26.4183 2 22 2H2" strokeWidth="2.5" strokeLinecap="round" />
+              <path d="M25 25V12C25 9.23858 22.7614 7 20 7H7" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 2" />
+              <circle cx="20" cy="12" r="3" fill="#b91c1c" stroke="none" />
+            </svg>
+            <svg
+              style={{ position: 'absolute', bottom: 14, left: 14, width: 32, height: 32, color: '#1e3a8a', opacity: 0.85, pointerEvents: 'none', zIndex: 1 }}
+              viewBox="0 0 32 32"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path d="M2 2V22C2 26.4183 5.58172 30 10 30H30" strokeWidth="2.5" strokeLinecap="round" />
+              <path d="M7 7V20C7 22.7614 9.23858 25 12 25H25" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 2" />
+              <circle cx="12" cy="20" r="3" fill="#b91c1c" stroke="none" />
+            </svg>
+            <svg
+              style={{ position: 'absolute', bottom: 14, right: 14, width: 32, height: 32, color: '#1e3a8a', opacity: 0.85, pointerEvents: 'none', zIndex: 1 }}
+              viewBox="0 0 32 32"
+              fill="none"
+              stroke="currentColor"
+            >
+              <path d="M30 2V22C30 26.4183 26.4183 30 22 30H2" strokeWidth="2.5" strokeLinecap="round" />
+              <path d="M25 7V20C25 22.7614 22.7614 25 20 25H7" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 2" />
+              <circle cx="20" cy="20" r="3" fill="#b91c1c" stroke="none" />
+            </svg>
 
             {/* Background School Logo Watermark Layer */}
             <div
@@ -2207,7 +2281,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
               )}
             </div>
 
-            <div style={{ position: 'relative', zIndex: 1 }}>
+            <div className="transcript-content-body" style={{ position: 'relative', zIndex: 1 }}>
               {/* Header Section */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
                 {/* Left Header Info */}
@@ -2247,24 +2321,93 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
               {/* Horizontal Navy Line */}
               <div style={{ borderBottom: '2px solid #1e3a8a', marginBottom: '20px' }} />
 
-              {/* Student Details Grid & Photo */}
-              <div className="transcript-student-section" style={{ display: 'grid', gridTemplateColumns: '1fr 115px', gap: '20px', alignItems: 'start', marginBottom: '24px' }}>
+              {/* Student Details Grid, Grading System & Photo */}
+              <div className="transcript-student-section" style={{ display: 'grid', gridTemplateColumns: '1fr auto 110px', gap: '16px', alignItems: 'start', marginBottom: '24px' }}>
                 {/* Left Student Info Fields with dotted borders */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   {studentInfoRows.map((info, idx) => (
-                    <div key={idx} className="transcript-info-field" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed #cbd5e1', padding: '5px 0' }}>
+                    <div key={idx} className="transcript-info-field" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed #cbd5e1', padding: '4px 0' }}>
                       <span className="transcript-info-label" style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         {info.label}
                       </span>
-                      <span className="transcript-info-value" style={{ fontSize: '13px', color: '#0f172a', fontWeight: '800' }}>
+                      <span className="transcript-info-value" style={{ fontSize: '12.5px', color: '#0f172a', fontWeight: '800' }}>
                         {info.value}
                       </span>
                     </div>
                   ))}
                 </div>
 
+                {/* Middle: Grading System Reference Table */}
+                <div className="transcript-grading-box" style={{
+                  width: '200px',
+                  border: '1.5px solid #1e3a8a',
+                  borderRadius: '6px',
+                  overflow: 'hidden',
+                  background: '#ffffff',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+                }}>
+                  <div style={{
+                    background: '#1e3a8a',
+                    color: '#ffffff',
+                    fontSize: '10px',
+                    fontWeight: '800',
+                    textAlign: 'center',
+                    padding: '3px 4px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    Grading System
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '10.5px' }}>
+                    <thead>
+                      <tr style={{ background: '#e0ecfb', borderBottom: '1.5px solid #1e3a8a' }}>
+                        <th style={{ padding: '3px 4px', color: '#1e3a8a', fontWeight: '800', fontSize: '9.5px', borderRight: '1px solid #1e3a8a' }}>Class Interval</th>
+                        <th style={{ padding: '3px 4px', color: '#1e3a8a', fontWeight: '800', fontSize: '9.5px', borderRight: '1px solid #1e3a8a' }}>Grade</th>
+                        <th style={{ padding: '3px 4px', color: '#1e3a8a', fontWeight: '800', fontSize: '9.5px' }}>G.P.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>80-100</td>
+                        <td style={{ padding: '2px 4px', fontWeight: '800', color: '#6d28d9', borderRight: '1px solid #cbd5e1' }}>A+</td>
+                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#0f172a' }}>5.00</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>70-79</td>
+                        <td style={{ padding: '2px 4px', fontWeight: '800', color: '#1d4ed8', borderRight: '1px solid #cbd5e1' }}>A</td>
+                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#0f172a' }}>4.00</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>60-69</td>
+                        <td style={{ padding: '2px 4px', fontWeight: '800', color: '#0369a1', borderRight: '1px solid #cbd5e1' }}>A-</td>
+                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#0f172a' }}>3.5</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>50-59</td>
+                        <td style={{ padding: '2px 4px', fontWeight: '800', color: '#15803d', borderRight: '1px solid #cbd5e1' }}>B</td>
+                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#0f172a' }}>3.00</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>40-49</td>
+                        <td style={{ padding: '2px 4px', fontWeight: '800', color: '#b45309', borderRight: '1px solid #cbd5e1' }}>C</td>
+                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#0f172a' }}>2.00</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>33-40</td>
+                        <td style={{ padding: '2px 4px', fontWeight: '800', color: '#c2410c', borderRight: '1px solid #cbd5e1' }}>D</td>
+                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#0f172a' }}>1.00</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>0-32</td>
+                        <td style={{ padding: '2px 4px', fontWeight: '800', color: '#b91c1c', borderRight: '1px solid #cbd5e1' }}>F</td>
+                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#0f172a' }}>0.00</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
                 {/* Right Photo Card */}
-                <div className="transcript-photo-box" style={{ width: '115px', height: '135px', border: '1.5px solid #000', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="transcript-photo-box" style={{ width: '110px', height: '130px', border: '1.5px solid #000', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                   {selectedStudent.profilePic ? (
                     <img src={selectedStudent.profilePic} alt="Student" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
@@ -2279,15 +2422,15 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
               </div>
 
               {/* Subject Performance Table */}
-              <div className="transcript-table-container" style={{ width: '100%', marginBottom: '20px', border: '1px solid #bfdbfe', borderRadius: '8px', overflow: 'hidden' }}>
-                <table className="transcript-performance-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <div className="transcript-table-container" style={{ width: '100%', marginBottom: '20px', border: '1.5px solid #1e3a8a', borderRadius: '8px', overflow: 'hidden', background: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                <table className="transcript-performance-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', background: '#ffffff' }}>
                   <thead>
-                    <tr style={{ background: '#e0ecfb' }}>
-                      <th style={{ padding: '10px 16px', color: '#1e3a8a', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #bfdbfe' }}>SUBJECT</th>
-                      <th style={{ padding: '10px 16px', color: '#1e3a8a', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1px solid #bfdbfe' }}>MARKS</th>
-                      <th style={{ padding: '10px 16px', color: '#1e3a8a', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1px solid #bfdbfe' }}>HIGHEST</th>
-                      <th style={{ padding: '10px 16px', color: '#1e3a8a', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1px solid #bfdbfe' }}>GRADE</th>
-                      <th style={{ padding: '10px 16px', color: '#1e3a8a', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1px solid #bfdbfe' }}>STATUS</th>
+                    <tr style={{ background: '#1e3a8a' }}>
+                      <th style={{ padding: '10px 16px', color: '#ffffff', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1.5px solid #1e3a8a' }}>SUBJECT</th>
+                      <th style={{ padding: '10px 16px', color: '#ffffff', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>MARKS</th>
+                      <th style={{ padding: '10px 16px', color: '#ffffff', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>HIGHEST</th>
+                      <th style={{ padding: '10px 16px', color: '#ffffff', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>GRADE</th>
+                      <th style={{ padding: '10px 16px', color: '#ffffff', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>STATUS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2334,7 +2477,25 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                                 —
                               </span>
                             ) : (
-                              <span style={{ display: 'inline-block', padding: '4px 14px', borderRadius: '6px', background: '#6d28d9', color: '#fff', fontSize: '13px', fontWeight: '800', minWidth: '36px', textAlign: 'center' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '4px 14px',
+                                borderRadius: '6px',
+                                background: {
+                                  'A+': '#6d28d9',
+                                  'A': '#1d4ed8',
+                                  'A-': '#0369a1',
+                                  'B': '#15803d',
+                                  'C': '#b45309',
+                                  'D': '#c2410c',
+                                  'F': '#b91c1c',
+                                }[subject.grade] || '#6d28d9',
+                                color: '#fff',
+                                fontSize: '13px',
+                                fontWeight: '800',
+                                minWidth: '36px',
+                                textAlign: 'center',
+                              }}>
                                 {subject.grade}
                               </span>
                             )}
@@ -2390,8 +2551,8 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                 </table>
               </div>
 
-              {/* 4 Summary Metric Cards */}
-              <div className="transcript-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#ffffff', overflow: 'hidden', textAlign: 'center', marginBottom: '24px' }}>
+              {/* 5 Summary Metric Cards */}
+              <div className="transcript-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#ffffff', overflow: 'hidden', textAlign: 'center', marginBottom: '16px' }}>
                 <div className="transcript-summary-cell" style={{ padding: '12px', borderRight: '1px solid #cbd5e1' }}>
                   <div className="transcript-summary-label" style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
                     PERCENTAGE
@@ -2419,12 +2580,21 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                   </div>
                 </div>
 
-                <div className="transcript-summary-cell" style={{ padding: '12px' }}>
+                <div className="transcript-summary-cell" style={{ padding: '12px', borderRight: '1px solid #cbd5e1' }}>
                   <div className="transcript-summary-label" style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
                     CLASS RANK
                   </div>
                   <div className="transcript-summary-value" style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
                     {!selectedStudent.isComplete ? 'N/A' : (selectedStudent.position ? `#${selectedStudent.position}` : 'N/A')}
+                  </div>
+                </div>
+
+                <div className="transcript-summary-cell" style={{ padding: '12px' }}>
+                  <div className="transcript-summary-label" style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+                    TOTAL STUDENTS
+                  </div>
+                  <div className="transcript-summary-value" style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                    {rankedFilteredResults.length || '—'}
                   </div>
                 </div>
               </div>
@@ -2435,35 +2605,38 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '24px',
+                  gap: 'clamp(6px, 2vw, 24px)',
                   alignItems: 'end',
-                  marginTop: '36px',
-                  paddingTop: '10px',
+                  marginTop: 'auto',
+                  paddingTop: '12px',
+                  marginBottom: '4px',
+                  width: '100%',
+                  boxSizing: 'border-box',
                 }}
               >
                 {/* Column 1: Class Teacher */}
-                <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <div style={{ height: '36px' }} />
-                  <div className="transcript-signature-line" style={{ width: '100%', borderTop: '1.5px solid #475569', marginBottom: '6px' }} />
-                  <span className="transcript-signature-label" style={{ fontSize: '11.5px', fontWeight: '700', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center' }}>
+                <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+                  <div className="transcript-signature-spacer" style={{ height: 'clamp(16px, 3vh, 32px)', minHeight: '16px' }} />
+                  <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: '4px' }} />
+                  <span className="transcript-signature-label" style={{ fontSize: 'clamp(9px, 1.2vw, 11px)', fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
                     Class Teacher
                   </span>
                 </div>
 
                 {/* Column 2: Guardian */}
-                <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <div style={{ height: '36px' }} />
-                  <div className="transcript-signature-line" style={{ width: '100%', borderTop: '1.5px solid #475569', marginBottom: '6px' }} />
-                  <span className="transcript-signature-label" style={{ fontSize: '11.5px', fontWeight: '700', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center' }}>
+                <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+                  <div className="transcript-signature-spacer" style={{ height: 'clamp(16px, 3vh, 32px)', minHeight: '16px' }} />
+                  <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: '4px' }} />
+                  <span className="transcript-signature-label" style={{ fontSize: 'clamp(9px, 1.2vw, 11px)', fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
                     Guardian
                   </span>
                 </div>
 
                 {/* Column 3: Head Teacher */}
-                <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <div style={{ height: '36px' }} />
-                  <div className="transcript-signature-line" style={{ width: '100%', borderTop: '1.5px solid #475569', marginBottom: '6px' }} />
-                  <span className="transcript-signature-label" style={{ fontSize: '11.5px', fontWeight: '700', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center' }}>
+                <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+                  <div className="transcript-signature-spacer" style={{ height: 'clamp(16px, 3vh, 32px)', minHeight: '16px' }} />
+                  <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: '4px' }} />
+                  <span className="transcript-signature-label" style={{ fontSize: 'clamp(9px, 1.2vw, 11px)', fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
                     Head Teacher
                   </span>
                 </div>

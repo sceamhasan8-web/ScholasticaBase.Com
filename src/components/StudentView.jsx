@@ -13,7 +13,9 @@ import { getStudentFeeRecord, evaluateFeeStatus, formatBDT } from '../utils/feeR
 import AddNoticeModal from './AddNoticeModal.jsx';
 import NotificationBell from './NotificationBell.jsx';
 import ScholasticBaseLogo from './ScholasticBaseLogo.jsx';
+import SafeImage from './SafeImage.jsx';
 import { getNotices, canUserAccessNotice, addNotice, subscribeToNoticeUpdates, normalizeRoles } from '../utils/noticeStorage.js';
+import SectionErrorBoundary from './SectionErrorBoundary.jsx';
 
 /* ─────────────────────────────────────────────────────────────
    React Error Boundary Component to prevent Blank/Black Screens
@@ -720,6 +722,68 @@ function DetailContent({
               </div>
             </div>
 
+            {/* Grading System Chart Card */}
+            <div style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              padding: '18px 22px',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+              marginBottom: '20px'
+            }}>
+              <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: '800', color: '#1e3a8a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                📊 Grading System (গ্রেডিং পদ্ধতি)
+              </h4>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ background: '#e0ecfb', borderBottom: '1.5px solid #1e3a8a' }}>
+                      <th style={{ padding: '6px 10px', color: '#1e3a8a', fontWeight: '800', borderRight: '1px solid #cbd5e1' }}>Class Interval</th>
+                      <th style={{ padding: '6px 10px', color: '#1e3a8a', fontWeight: '800', borderRight: '1px solid #cbd5e1' }}>Grade</th>
+                      <th style={{ padding: '6px 10px', color: '#1e3a8a', fontWeight: '800' }}>G.P.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                      <td style={{ padding: '6px 10px', fontWeight: '700', color: '#334155', borderRight: '1px solid #cbd5e1' }}>80-100</td>
+                      <td style={{ padding: '6px 10px', fontWeight: '800', color: '#6d28d9', borderRight: '1px solid #cbd5e1' }}>A+</td>
+                      <td style={{ padding: '6px 10px', fontWeight: '700', color: '#0f172a' }}>5.00</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                      <td style={{ padding: '6px 10px', fontWeight: '700', color: '#334155', borderRight: '1px solid #cbd5e1' }}>70-79</td>
+                      <td style={{ padding: '6px 10px', fontWeight: '800', color: '#1d4ed8', borderRight: '1px solid #cbd5e1' }}>A</td>
+                      <td style={{ padding: '6px 10px', fontWeight: '700', color: '#0f172a' }}>4.00</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                      <td style={{ padding: '6px 10px', fontWeight: '700', color: '#334155', borderRight: '1px solid #cbd5e1' }}>60-69</td>
+                      <td style={{ padding: '6px 10px', fontWeight: '800', color: '#0369a1', borderRight: '1px solid #cbd5e1' }}>A-</td>
+                      <td style={{ padding: '6px 10px', fontWeight: '700', color: '#0f172a' }}>3.5</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                      <td style={{ padding: '6px 10px', fontWeight: '700', color: '#334155', borderRight: '1px solid #cbd5e1' }}>50-59</td>
+                      <td style={{ padding: '6px 10px', fontWeight: '800', color: '#15803d', borderRight: '1px solid #cbd5e1' }}>B</td>
+                      <td style={{ padding: '6px 10px', fontWeight: '700', color: '#0f172a' }}>3.00</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                      <td style={{ padding: '6px 10px', fontWeight: '700', color: '#334155', borderRight: '1px solid #cbd5e1' }}>40-49</td>
+                      <td style={{ padding: '6px 10px', fontWeight: '800', color: '#b45309', borderRight: '1px solid #cbd5e1' }}>C</td>
+                      <td style={{ padding: '6px 10px', fontWeight: '700', color: '#0f172a' }}>2.00</td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                      <td style={{ padding: '6px 10px', fontWeight: '700', color: '#334155', borderRight: '1px solid #cbd5e1' }}>33-40</td>
+                      <td style={{ padding: '6px 10px', fontWeight: '800', color: '#c2410c', borderRight: '1px solid #cbd5e1' }}>D</td>
+                      <td style={{ padding: '6px 10px', fontWeight: '700', color: '#0f172a' }}>1.00</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '6px 10px', fontWeight: '700', color: '#334155', borderRight: '1px solid #cbd5e1' }}>0-32</td>
+                      <td style={{ padding: '6px 10px', fontWeight: '800', color: '#b91c1c', borderRight: '1px solid #cbd5e1' }}>F</td>
+                      <td style={{ padding: '6px 10px', fontWeight: '700', color: '#0f172a' }}>0.00</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             {/* Results Table Box */}
             <div style={{
               background: '#ffffff',
@@ -957,8 +1021,15 @@ function StudentViewContent() {
       <div className={`tp-drawer-overlay ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(false)}>
           <div className="tp-drawer" onClick={(e) => e.stopPropagation()}>
             <div className="tp-drawer-brand">
-              {profile.logo ? <img src={profile.logo} alt="Logo" className="tp-drawer-logo" /> : <ScholasticBaseLogo variant="mark" size={32} />}
-              <div>
+              <SafeImage
+                src={profile.logo}
+                alt="School Logo"
+                className="tp-drawer-logo"
+                style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0 }}
+                fallbackVariant="school"
+                fallbackText={profile.schoolName || 'ScholasticBase'}
+              />
+              <div style={{ flex: '1 1 0%', minWidth: 0 }}>
                 <p className="tp-drawer-title">Menu</p>
                 <p className="tp-drawer-school">{profile.schoolName || 'ScholasticBase'}</p>
                 {(profile.location || window.localStorage.getItem('schoolLocation')) && (
@@ -1006,8 +1077,15 @@ function StudentViewContent() {
       {/* ── DESKTOP SIDEBAR ── */}
       <aside className="tp-sidebar">
         <div className="tp-sidebar-brand">
-          {profile.logo ? <img src={profile.logo} alt="Logo" className="tp-sidebar-crest" /> : <ScholasticBaseLogo variant="mark" size={32} />}
-          <div>
+          <SafeImage
+            src={profile.logo}
+            alt="School Logo"
+            className="tp-sidebar-crest"
+            style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0 }}
+            fallbackVariant="school"
+            fallbackText={profile.schoolName || 'ScholasticBase'}
+          />
+          <div style={{ flex: '1 1 0%', minWidth: 0 }}>
             <span className="tp-sidebar-school">{profile.schoolName || 'ScholasticBase'}</span>
             {(profile.location || window.localStorage.getItem('schoolLocation')) && (
               <span className="tp-sidebar-location" style={{ display: 'block', fontSize: 12, color: '#64748b', fontWeight: 400, marginTop: 2 }}>
@@ -1117,16 +1195,18 @@ function StudentViewContent() {
                 <h2 className="tp-section-title">{sectionMeta?.title}</h2>
               </div>
             </div>
-            <DetailContent
-              section={activeSection}
-              user={activeUser}
-              results={results}
-              loading={loading}
-              error={error}
-              liveTeachers={liveTeachers}
-              liveStudents={liveStudents}
-              studentProfile={studentProfile}
-            />
+            <SectionErrorBoundary sectionName={sectionMeta?.title || "Detail View"}>
+              <DetailContent
+                section={activeSection}
+                user={activeUser}
+                results={results}
+                loading={loading}
+                error={error}
+                liveTeachers={liveTeachers}
+                liveStudents={liveStudents}
+                studentProfile={studentProfile}
+              />
+            </SectionErrorBoundary>
           </div>
         )}
 
@@ -1139,8 +1219,15 @@ function StudentViewContent() {
                 <p>“অগাধ ধন সম্পদের চেয়ে একজন সুশিক্ষিত সন্তানের মুল্য অনেক বেশি”</p>
               </div>
               <div className="tp-school-brand">
-                {profile.logo && <img src={profile.logo} alt="Logo" className="tp-crest" />}
-                <div>
+                <SafeImage
+                  src={profile.logo}
+                  alt="School Logo"
+                  className="tp-crest"
+                  style={{ width: 68, height: 68, borderRadius: 12, flexShrink: 0 }}
+                  fallbackVariant="school"
+                  fallbackText={profile.schoolName || 'ScholasticBase'}
+                />
+                <div style={{ flex: '1 1 0%', minWidth: 0 }}>
                   <span className="tp-school-name">{profile.schoolName || 'ScholasticBase'}</span>
                   {(profile.location || window.localStorage.getItem('schoolLocation')) && (
                     <span className="tp-school-location" style={{ display: 'block', fontSize: 12, color: '#64748b', fontWeight: 500, marginTop: 2 }}>
@@ -1248,11 +1335,14 @@ function StudentViewContent() {
           <div className="sv-content-area">
             <h2 className="sv-page-title">👤 My Account Profile</h2>
             <div className="sv-profile-card">
-              {displayUser?.profilePic ? (
-                <img src={displayUser.profilePic} alt={displayUser.name || 'User'} className="sv-profile-avatar-img" />
-              ) : (
-                <div className="sv-profile-avatar">{(displayUser.name || displayUser.userId || 'S').charAt(0).toUpperCase()}</div>
-              )}
+              <SafeImage
+                src={displayUser?.profilePic}
+                alt={displayUser.name || 'User'}
+                className="sv-profile-avatar-img"
+                style={{ width: 80, height: 80, borderRadius: '50%', flexShrink: 0 }}
+                fallbackVariant="avatar"
+                fallbackText={displayUser.name || displayUser.userId || 'Student'}
+              />
               <h3 className="sv-profile-name">{displayUser.name || 'Student'}</h3>
               <p className="sv-profile-role">{displayUser.role || 'student'} Portal</p>
               <div className="sv-profile-info">

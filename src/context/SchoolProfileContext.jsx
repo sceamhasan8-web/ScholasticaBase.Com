@@ -25,6 +25,15 @@ const defaultSchoolProfile = {
 
 const SchoolProfileContext = createContext(null);
 
+const sanitizeLogoUrl = (url) => {
+    if (!url || typeof url !== 'string') return defaultLogo;
+    const trimmed = url.trim();
+    if (trimmed.includes('firebasestorage.googleapis.com') && !trimmed.includes('token=')) {
+        return defaultLogo;
+    }
+    return trimmed;
+};
+
 let cachedProfile = null;
 
 const invalidateProfileCache = () => {
@@ -58,6 +67,7 @@ const loadSchoolProfile = () => {
         const profile = {
             ...defaultSchoolProfile,
             ...parsed,
+            logo: sanitizeLogoUrl(parsed.logo || defaultLogo),
             schoolName: activeSchoolName,
             eiinNumber: activeEiinNumber,
             location: activeLocation,
@@ -162,6 +172,7 @@ export function SchoolProfileProvider({ children }) {
                 const nextProfile = {
                     ...defaultSchoolProfile,
                     ...remoteProfile,
+                    logo: sanitizeLogoUrl(remoteProfile.logo || window.localStorage.getItem('schoolLogo') || defaultSchoolProfile.logo),
                     schoolName: remoteProfile.schoolName || window.localStorage.getItem('schoolName') || defaultSchoolProfile.schoolName,
                     eiinNumber: remoteProfile.eiinNumber || window.localStorage.getItem('schoolEiinNumber') || defaultSchoolProfile.eiinNumber,
                     location: remoteProfile.location !== undefined ? remoteProfile.location : (window.localStorage.getItem('schoolLocation') || defaultSchoolProfile.location || ''),

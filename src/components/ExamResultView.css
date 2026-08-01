@@ -2,16 +2,20 @@
 
 /* Screen layout styles for transcript */
 .transcript-container {
-  border: 2px solid #a3b8cc;
+  border: 4px double #1e3a8a;
+  outline: 2px solid #b91c1c;
+  outline-offset: -7px;
   padding: 30px;
-  border-radius: 12px;
-  background: #ffffff;
+  border-radius: 14px;
+  background-color: #FFF2F2 !important;
+  background: #FFF2F2 !important;
   max-width: 850px;
   margin: 20px auto;
-  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 12px 45px rgba(30, 58, 138, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.6);
   font-family: 'Inter', system-ui, sans-serif;
   color: #1e293b;
   box-sizing: border-box;
+  position: relative;
 }
 
 /* Header Section */
@@ -259,7 +263,7 @@
 /* Summary Grid */
 .transcript-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   background: #f8fafc;
@@ -359,15 +363,31 @@
   display: block;
 }
 
-/* Print-Specific styling rules */
+/* Print-Specific styling rules: Guarantees 1:1 identical reproduction of on-screen card on 1 A4 page */
 @media print {
 
-  /* 1. Force-hide default UI chrome */
+  /* ── A4 Portrait page setup with minimal margins for max usable space ── */
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  /* ── Force exact color reproduction across all print engines ── */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    box-sizing: border-box !important;
+  }
+
+  /* ── 1. Hide ALL UI chrome by default ── */
   body * {
     visibility: hidden !important;
   }
 
-  /* 2. Selectively bring back ALL printable area wrappers and their children */
+  /* ── 2. Selectively show printable areas and their children ── */
   .mark-sheet-print-area-wrapper,
   .mark-sheet-print-area-wrapper *,
   .results-tabulation-sheet,
@@ -379,205 +399,391 @@
     visibility: visible !important;
   }
 
-  /* 3. Hide non-printable action controls within printable wrappers */
+  /* ── 3. Hide non-printable controls within printable wrappers ── */
   .mark-sheet-no-print,
   .mark-sheet-no-print *,
   .transcript-no-print,
-  .transcript-no-print * {
+  .transcript-no-print *,
+  .mark-sheet-actions,
+  .mark-sheet-actions *,
+  .print-trigger-bar,
+  .print-trigger-bar *,
+  .tp-back-btn,
+  .tp-breadcrumbs,
+  .tp-section-header-info {
     visibility: hidden !important;
     display: none !important;
-  }
-
-  /* 4. Position the printable container at the top of the printed page */
-  .mark-sheet-print-area-wrapper,
-  .results-tabulation-sheet,
-  .printable-area,
-  .print-container {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
-    display: block !important;
   }
 
-  /* 5. Define A4 dimensions and clean page margins */
-  @page {
-    size: A4;
-    margin: 10mm 15mm 10mm 15mm;
-    /* Top, Right, Bottom, Left */
-  }
-
+  /* ── 4. Reset ONLY layout ancestor containers (NOT all divs) ── */
   html,
-  body {
-    background: #ffffff !important;
-    color: #000000 !important;
+  body,
+  #root,
+  .app-container,
+  .teacher-panel-container,
+  .main-content,
+  .dashboard-container {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
     height: auto !important;
+    min-height: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+    transform: none !important;
+  }
+
+  /* ── 5. Outermost print wrapper — fills the viewport as centering anchor ── */
+  .mark-sheet-print-area-wrapper {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #ffffff !important;
+    z-index: 999999 !important;
     overflow: visible !important;
   }
 
-  /* 6. Style the card to fit perfectly on a single page */
-  .transcript-container {
-    border: 2px solid #000000 !important;
-    box-shadow: none !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    height: 100% !important;
+  /* ── 5b. Inner print-container should NOT re-apply fixed positioning ── */
+  .mark-sheet-print-area-wrapper .print-wrapper-root,
+  .mark-sheet-print-area-wrapper .print-container,
+  .mark-sheet-print-area-wrapper [data-print-container="true"] {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: auto !important;
+    height: auto !important;
     margin: 0 !important;
-    padding: 15px !important;
-    box-sizing: border-box !important;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: space-between !important;
+    padding: 0 !important;
+    display: block !important;
+    background: transparent !important;
+    z-index: auto !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: none !important;
   }
 
-  /* 7. Ensure background colors render in print previews */
-  * {
+  /* ── 6. Transcript container — fits exactly on 1 A4 page ── */
+  .transcript-container {
+    position: relative !important;
+    /* A4 printable area with 8mm margins: 210-16=194mm wide, 297-16=281mm tall */
+    width: 190mm !important;
+    max-width: 190mm !important;
+    min-height: 274mm !important;
+    max-height: 279mm !important;
+    margin: 0 auto !important;
+    padding: 16px 20px !important;
+    box-sizing: border-box !important;
+
+    /* Flex layout: content grows, signature stays at bottom */
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+
+    /* Decorative frame */
+    border: 3px double #1e3a8a !important;
+    outline: 2px solid #b91c1c !important;
+    outline-offset: -6px !important;
+    border-radius: 12px !important;
+    background-color: #FFF2F2 !important;
+    background: #FFF2F2 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    box-shadow: none !important;
+
+    /* Prevent page breaks and overflow */
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: visible !important;
+  }
+
+  /* Inner content wrapper — fill available space, flex column for footer push */
+  .transcript-content-body {
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    position: relative !important;
+    z-index: 1 !important;
+  }
+
+  /* ── Decorative elements ── */
+  .transcript-inner-border {
+    border: 1px dashed #1e3a8a !important;
+    opacity: 0.35 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
+  /* ── Header Section (School Name, Exam Title) ── */
   .transcript-header {
-    margin-bottom: 8mm !important;
+    margin-bottom: 1.5mm !important;
   }
 
   .transcript-school-name {
-    font-size: 24px !important;
-    color: #000000 !important;
+    font-size: 20px !important;
+    color: #1e3a8a !important;
   }
 
-  .transcript-school-meta {
-    font-size: 11px !important;
-    color: #475569 !important;
+  /* ── Student Info + Grading Box + Photo Grid ── */
+  .transcript-student-section {
+    margin-bottom: 8px !important;
+    gap: 10px !important;
   }
 
-  .transcript-session-capsule {
-    background: #f1f5f9 !important;
-    border: 1px solid #cbd5e1 !important;
-    color: #334155 !important;
+  .transcript-info-field {
+    border-bottom: 1px dashed #cbd5e1 !important;
+    padding: 2px 0 !important;
+  }
+
+  .transcript-info-label {
+    color: #64748b !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+  }
+
+  .transcript-info-value {
+    color: #0f172a !important;
+    font-size: 11.5px !important;
+    font-weight: 800 !important;
+  }
+
+  .transcript-photo-box {
+    border: 1.5px solid #000000 !important;
+    background: #f8fafc !important;
+    width: 100px !important;
+    height: 120px !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  .transcript-student-section {
-    margin-bottom: 8mm !important;
-    gap: 12mm !important;
-  }
-
-  .transcript-student-grid {
-    gap: 3mm 8mm !important;
-  }
-
-  .transcript-info-field {
-    border-bottom: 1px dashed #94a3b8 !important;
-  }
-
-  .transcript-info-label {
-    color: #475569 !important;
-  }
-
-  .transcript-info-value {
-    color: #000000 !important;
-  }
-
-  .transcript-photo-box {
-    border: 2px solid #000000 !important;
+  .transcript-grading-box {
+    width: 180px !important;
+    border: 1.5px solid #1e3a8a !important;
+    border-radius: 5px !important;
     background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
-  /* Academic Performance Table */
+  .transcript-grading-box table th,
+  .transcript-grading-table th {
+    padding: 2px 3px !important;
+    font-size: 8.5px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .transcript-grading-box table td,
+  .transcript-grading-table td {
+    padding: 1.5px 3px !important;
+    font-size: 9.5px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ── Academic Performance Table — compact for print ── */
   .transcript-table-container {
-    margin-bottom: 8mm !important;
+    margin-bottom: 8px !important;
+    border: 1.5px solid #1e3a8a !important;
+    border-radius: 6px !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .transcript-performance-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
   }
 
   .transcript-performance-table th {
-    background: #dbeafe !important;
-    color: #1e3a8a !important;
-    border: 1px solid #94a3b8 !important;
+    background: #1e3a8a !important;
+    color: #ffffff !important;
+    border: 1px solid #1e3a8a !important;
+    padding: 5px 8px !important;
+    font-size: 10.5px !important;
+    font-weight: 800 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   .transcript-performance-table td {
-    padding: 10px 14px !important;
-    font-size: 12.5px !important;
-    border: 1px solid #cbd5e1 !important;
-  }
-
-  .marks-main {
-    color: #1d4ed8 !important;
-  }
-
-  .badge-pass {
-    background: #dcfce7 !important;
-    color: #166534 !important;
-    border: 1px solid #bbf7d0 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  .badge-fail {
-    background: #fee2e2 !important;
-    color: #991b1b !important;
-    border: 1px solid #fecaca !important;
+    padding: 5px 8px !important;
+    font-size: 11px !important;
+    border: 1px solid #e2e8f0 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   .transcript-grand-total-row td {
-    background: #f8fafc !important;
-    border-top: 2px solid #000000 !important;
-    border-bottom: 2px solid #000000 !important;
+    padding: 6px 8px !important;
+    background: #ffffff !important;
+    border-top: 2px solid #0f172a !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Summary Grid */
+  /* ── 5 Summary Metric Cards — compact for print ── */
   .transcript-summary-grid {
-    border: 1px solid #000000 !important;
-    background: #f8fafc !important;
-    margin-bottom: 12mm !important;
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    background: #ffffff !important;
+    margin-bottom: 8px !important;
+    overflow: hidden !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   .transcript-summary-cell {
-    border-right: 1px solid #000000 !important;
+    padding: 6px 4px !important;
+    border-right: 1px solid #cbd5e1 !important;
+    text-align: center !important;
   }
 
   .transcript-summary-cell:last-child {
     border-right: none !important;
   }
 
+  .transcript-summary-label {
+    font-size: 8.5px !important;
+    margin-bottom: 2px !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+  }
+
   .transcript-summary-value {
-    color: #000000 !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
   }
 
-  /* Signatures Footer */
+  /* ══════════════════════════════════════════════════════════════
+     SIGNATURES FOOTER — PERMANENTLY VISIBLE IN PRINT
+     Uses .mark-sheet-print-area-wrapper prefix for max specificity
+     to override any global print-engine.css rules.
+     ══════════════════════════════════════════════════════════════ */
+  .mark-sheet-print-area-wrapper .transcript-footer,
+  .transcript-content-body .transcript-footer,
+  .transcript-container .transcript-footer,
   .transcript-footer {
+    visibility: visible !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    align-items: end !important;
     margin-top: auto !important;
-    gap: 15mm !important;
+    padding-top: 12px !important;
+    margin-bottom: 4px !important;
+    gap: 24px !important;
+    width: 100% !important;
+    height: auto !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
+  .mark-sheet-print-area-wrapper .transcript-signature-col,
+  .transcript-footer .transcript-signature-col,
+  .transcript-signature-col {
+    visibility: visible !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    width: 100% !important;
+    height: auto !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .mark-sheet-print-area-wrapper .transcript-signature-spacer,
+  .transcript-footer .transcript-signature-spacer,
+  .transcript-signature-spacer {
+    visibility: visible !important;
+    display: block !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    width: 100% !important;
+    opacity: 1 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .mark-sheet-print-area-wrapper .transcript-signature-line,
+  .transcript-footer .transcript-signature-line,
   .transcript-signature-line {
-    border-top: 1.5px solid #000000 !important;
-  }
-
-  .transcript-signature-label {
-    color: #000000 !important;
-  }
-
-  .transcript-signature-placeholder {
-    color: #1e3a8a !important;
+    visibility: visible !important;
+    display: block !important;
+    width: 100% !important;
+    height: 0 !important;
+    border-top: 1.5px solid #1e3a8a !important;
+    margin: 0 0 4px 0 !important;
+    padding: 0 !important;
+    opacity: 1 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  .transcript-qr-box {
-    border: 1px solid #000000 !important;
+  .mark-sheet-print-area-wrapper .transcript-signature-label,
+  .transcript-footer .transcript-signature-label,
+  .transcript-footer span,
+  .transcript-signature-label {
+    visibility: visible !important;
+    display: block !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #1e293b !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+    text-align: center !important;
+    width: 100% !important;
+    height: auto !important;
+    opacity: 1 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* ── Corner flourish SVGs — ensure they render ── */
+  .transcript-container svg {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ── Watermark layer ── */
+  .transcript-container > div[aria-hidden="true"] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ── Grade badges and status badges inline ── */
+  .transcript-performance-table td span[style*="border-radius"] {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }
 
@@ -689,32 +895,50 @@
   }
 
   /* Responsive Signature Footer for Mobile */
-  .print-footer {
-    margin-top: 20px;
-    padding-top: 12px;
+  .print-footer,
+  .transcript-footer {
+    margin-top: 18px;
+    padding-top: 10px;
+    gap: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
-  .print-signatures-row {
-    flex-wrap: wrap;
-    justify-content: space-around;
-    gap: 16px 12px;
-    margin-top: 20px;
-    margin-bottom: 12px;
+  .print-signatures-row,
+  .transcript-footer {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+    margin-top: 16px !important;
+    margin-bottom: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
-  .print-signature-item {
-    flex: 1 1 95px;
-    max-width: 140px;
-    min-width: 90px;
+  .print-signature-item,
+  .transcript-signature-col {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
-  .print-signature-line {
-    max-width: 120px;
-    margin-bottom: 4px;
+  .print-signature-line,
+  .transcript-signature-line {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 4px !important;
   }
 
-  .print-signature-label {
-    font-size: 10.5px;
+  .transcript-signature-spacer {
+    height: 20px !important;
+    min-height: 20px !important;
+  }
+
+  .print-signature-label,
+  .transcript-signature-label {
+    font-size: 10px !important;
+    word-break: break-word !important;
+    text-align: center !important;
   }
 
   .print-footer-meta {
@@ -1165,4 +1389,19 @@
     align-items: center;
     gap: 20px;
   }
+}
+
+.wit-grading-box {
+  width: 100%;
+}
+
+.wit-info-split-row {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wit-cert-footer {
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
 }

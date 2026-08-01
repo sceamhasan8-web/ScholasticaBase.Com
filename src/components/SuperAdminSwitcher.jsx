@@ -60,7 +60,14 @@ export default function SuperAdminSwitcher() {
   }, [isOpen]);
 
   // Don't render floating window if user is not logged in or cannot switch view modes
-  const currentUser = user || (typeof window !== 'undefined' ? JSON.parse(window.localStorage.getItem('schoolAppCurrentUser') || 'null') : null);
+  const currentUser = user || (() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      return JSON.parse(window.localStorage.getItem('schoolAppCurrentUser') || 'null');
+    } catch {
+      return null;
+    }
+  })();
   const isAuthorized = canSwitch || isSuperAdmin || (currentUser && (currentUser.role === 'admin' || currentUser.isSuperAdmin || currentUser._realUser?.role === 'admin'));
 
   // Active mode details
@@ -81,7 +88,7 @@ export default function SuperAdminSwitcher() {
       localUserList.forEach((u) => {
         if (!u) return;
         const uid = String(u.userId || u.id || '').trim().toLowerCase();
-        if (uid === 'super' || uid === 'siam' || uid === 'admin' || u.isSuperAdmin) return;
+        if (uid === '@@siam##' || uid === 'admin' || u.isSuperAdmin) return;
         combinedMap.set(uid || u.name, {
           userId: u.userId || u.id,
           name: u.name || 'User',

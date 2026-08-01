@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSchoolProfile } from '../context/SchoolProfileContext.jsx';
+import SafeImage from './SafeImage.jsx';
 
 /**
  * PrintContainer Component
@@ -134,19 +135,19 @@ export const PrintContainer = ({
         {/* Standardized Header */}
         {!hideDefaultHeader && (
           <header className="print-header">
-            <div className="print-header-left">
+            <div className="print-header-left" style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
               {activeLogoUrl && (
-                <img
+                <SafeImage
                   src={activeLogoUrl}
                   alt="School Logo"
                   className="print-logo"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
+                  style={{ width: 50, height: 50, borderRadius: 8, flexShrink: 0 }}
+                  fallbackVariant="school"
+                  fallbackText={activeSchoolName}
                 />
               )}
-              <div>
-                <h1 className="print-institution-name">{activeSchoolName}</h1>
+              <div style={{ flex: '1 1 0%', minWidth: 0 }}>
+                <h1 className="print-institution-name" style={{ wordBreak: 'normal', overflowWrap: 'break-word' }}>{activeSchoolName}</h1>
                 {activeLocation && (
                   <p className="print-school-location" style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
                     📍 {activeLocation}
@@ -187,14 +188,15 @@ export const PrintContainer = ({
                 alignItems: 'flex-end',
                 marginTop: '28px',
                 marginBottom: '16px',
-                gap: '24px',
+                gap: 'clamp(6px, 2vw, 24px)',
                 width: '100%',
+                boxSizing: 'border-box',
               }}>
                 {signatures.map((sigLabel, idx) => (
                   <div key={idx} className="print-signature-item" style={{
                     flex: 1,
                     textAlign: 'center',
-                    minWidth: '110px',
+                    minWidth: '0',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -207,11 +209,12 @@ export const PrintContainer = ({
                       minHeight: '1px',
                     }} />
                     <span className="print-signature-label" style={{
-                      fontSize: '12px',
+                      fontSize: 'clamp(9px, 1.2vw, 12px)',
                       fontWeight: '700',
                       color: '#334155',
                       display: 'block',
                       lineHeight: '1.3',
+                      wordBreak: 'break-word',
                     }}>
                       {sigLabel}
                     </span>

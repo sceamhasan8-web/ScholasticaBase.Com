@@ -521,6 +521,15 @@ label {
     padding-bottom: 18px;
     border-bottom: 1px solid rgba(226, 232, 240, 0.8);
     margin-bottom: 18px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .tp-sidebar-brand > div {
+    flex: 1 1 0%;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: normal;
   }
 
   .tp-sidebar-crest {
@@ -535,7 +544,11 @@ label {
     font-weight: 800;
     color: #1a2e4a;
     line-height: 1.3;
-    word-break: break-word;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    word-break: normal;
+    overflow-wrap: break-word;
   }
 
   .tp-sidebar-nav {
@@ -1894,17 +1907,38 @@ button,
     border-right: none !important;
   }
 
-  .print-signatures-row {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    justify-content: space-around !important;
-    gap: 16px 12px !important;
-    margin-top: 24px !important;
+  .print-signatures-row,
+  .transcript-footer {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+    margin-top: 18px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
-  .print-signature-item {
-    flex: 1 1 95px !important;
-    max-width: 140px !important;
-    min-width: 90px !important;
+  .print-signature-item,
+  .transcript-signature-col {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .transcript-signature-spacer {
+    height: 20px !important;
+    min-height: 20px !important;
+  }
+
+  .transcript-signature-line,
+  .print-signature-line {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .transcript-signature-label,
+  .print-signature-label {
+    font-size: 9.5px !important;
+    word-break: break-word !important;
+    text-align: center !important;
   }
 }

@@ -21,6 +21,7 @@ import {
 } from '../utils/feeResolver.js';
 import StudentFeeConfigModal from './StudentFeeConfigModal.jsx';
 import PrincipalFeeApprovals from './PrincipalFeeApprovals.jsx';
+import SectionErrorBoundary from './SectionErrorBoundary.jsx';
 
 // SVG Icons
 const ChevronLeft = () => (
@@ -480,7 +481,7 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
       {/* Top Header & Dues Summary */}
       <div className="fm-top-header">
         <div className="fm-title-box">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
+          <div className="fm-title-row">
             {activeTab === 'roster' && navigationLevel > 1 && (
               <button
                 onClick={() => setNavigationLevel(prev => prev - 1)}
@@ -571,7 +572,9 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
       {/* TAB: TRANSACTION APPROVALS                                    */}
       {/* ───────────────────────────────────────────────────────────── */}
       {activeTab === 'approvals' && (
-        <PrincipalFeeApprovals />
+        <SectionErrorBoundary sectionName="Transaction Approvals">
+          <PrincipalFeeApprovals />
+        </SectionErrorBoundary>
       )}
 
       {/* ───────────────────────────────────────────────────────────── */}
@@ -626,11 +629,11 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
                       </p>
 
                       <div className="fm-card-stats">
-                        <div>
+                        <div style={{ minWidth: 0 }}>
                           <div className="fm-stat-label">Total Enrolled</div>
                           <div className="fm-stat-val font-dark">{stats.total} Students</div>
                         </div>
-                        <div>
+                        <div style={{ minWidth: 0 }}>
                           <div className="fm-stat-label">Pending Dues</div>
                           <div className="fm-stat-val" style={{ color: branch.color }}>{formatBDT(stats.pending)}</div>
                         </div>
@@ -654,32 +657,35 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
           {/* LEVEL 2: CLASS SELECTION GRID */}
           {navigationLevel === 2 && selectedBranchKey && (
             <div>
-              <div style={{
-                background: `linear-gradient(135deg, ${SCHOOL_BRANCHES[selectedBranchKey].gradientFrom}, ${SCHOOL_BRANCHES[selectedBranchKey].gradientTo})`,
-                borderRadius: 16,
-                padding: '24px 28px',
-                color: '#ffffff',
-                marginBottom: 24,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 16,
-              }}>
+              <div
+                className="fm-class-header-banner"
+                style={{
+                  background: `linear-gradient(135deg, ${SCHOOL_BRANCHES[selectedBranchKey].gradientFrom}, ${SCHOOL_BRANCHES[selectedBranchKey].gradientTo})`,
+                  borderRadius: 12,
+                  padding: '14px 18px',
+                  color: '#ffffff',
+                  marginBottom: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 10,
+                }}
+              >
                 <div>
-                  <span style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85, fontWeight: 700 }}>
+                  <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.85, fontWeight: 700 }}>
                     {SCHOOL_BRANCHES[selectedBranchKey].shortName}
                   </span>
-                  <h2 style={{ margin: '4px 0 0 0', fontSize: 22, fontWeight: 800 }}>
+                  <h2 style={{ margin: '2px 0 0 0', fontSize: 19, fontWeight: 800 }}>
                     {SCHOOL_BRANCHES[selectedBranchKey].emoji} {SCHOOL_BRANCHES[selectedBranchKey].name}
                   </h2>
                 </div>
-                <div style={{ fontSize: 14, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', padding: '10px 18px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.2)' }}>
+                <div style={{ fontSize: 13, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)' }}>
                   Select a class below to manage student fee rosters
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 220px), 1fr))', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 210px), 1fr))', gap: 10 }}>
                 {availableClassesInBranch.map(clsName => {
                   const clsStudents = enrichedStudents.filter(st => st.className === clsName);
                   const totalDues = clsStudents.reduce((sum, st) => sum + st.feeEval.totalPayable, 0);
@@ -690,39 +696,39 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
                       key={clsName}
                       onClick={() => handleSelectClass(clsName)}
                       style={{
-                        borderRadius: 14,
+                        borderRadius: 10,
                         background: '#ffffff',
                         border: '1px solid #e2e8f0',
-                        boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
-                        padding: 20,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                        padding: '12px 14px',
                         cursor: 'pointer',
                         transition: 'all 0.2s ease',
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.borderColor = SCHOOL_BRANCHES[selectedBranchKey].color;
                         e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.06)';
+                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.06)';
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.borderColor = '#e2e8f0';
                         e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.03)';
+                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.03)';
                       }}
                     >
-                      <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', marginBottom: 6 }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>
                         {clsName}
                       </div>
-                      <div style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>
+                      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>
                         {clsStudents.length} Students Enrolled
                       </div>
 
-                      <div style={{ paddingTop: 10, borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ paddingTop: 8, borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                          <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Class Outstanding Dues</div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: SCHOOL_BRANCHES[selectedBranchKey].color }}>{formatBDT(totalDues)}</div>
+                          <div style={{ fontSize: 9.5, color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>Class Outstanding Dues</div>
+                          <div style={{ fontSize: 13.5, fontWeight: 700, color: SCHOOL_BRANCHES[selectedBranchKey].color }}>{formatBDT(totalDues)}</div>
                         </div>
                         {overdueCount > 0 && (
-                          <span style={{ fontSize: 11, background: '#fee2e2', color: '#991b1b', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>
+                          <span style={{ fontSize: 10.5, background: '#fee2e2', color: '#991b1b', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>
                             {overdueCount} Overdue
                           </span>
                         )}
@@ -738,7 +744,7 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
           {navigationLevel === 3 && selectedClassName && (
             <div>
               {/* Search & Status Filters */}
-              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, background: '#ffffff', padding: 16, borderRadius: 14, border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, background: '#ffffff', padding: '10px 12px', borderRadius: 10, border: '1px solid #e2e8f0' }}>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 10, padding: '8px 14px', width: '100%', maxWidth: 280 }}>
                   <SearchIcon />

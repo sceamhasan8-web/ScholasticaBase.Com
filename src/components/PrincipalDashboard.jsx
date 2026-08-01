@@ -8,6 +8,8 @@ import PrincipalFeeApprovals from './PrincipalFeeApprovals.jsx';
 import { getPendingTransactions, subscribeToFeeUpdates as subscribeToFeeUpdatesUtils } from '../utils/feeResolver.js';
 import { subscribeToTeacherPanelData } from '../firebase/firestoreSchema.js';
 import { readStorage, writeStorage } from '../utils/schoolData.js';
+import SectionErrorBoundary from './SectionErrorBoundary.jsx';
+import SafeImage from './SafeImage.jsx';
 
 /* ─────────────────────────────────────────────────────────────
    Branch display order
@@ -351,13 +353,20 @@ export default function PrincipalDashboard() {
   const loadAccounts = () => {
     try {
       const defaultAdmins = {
-        'super': { userId: 'super', name: 'Super Admin', password: 'admin', role: 'admin', isSuperAdmin: true },
-        'siam': { userId: 'SIAM', name: 'SIAM Super Admin', password: '@super@admin', role: 'admin', isSuperAdmin: true },
+        '@@Siam##': { userId: '@@Siam##', name: 'Super Admin', password: '@SupaX', role: 'admin', isSuperAdmin: true },
         'admin': { userId: 'admin', name: 'Admin Administrator', password: 'admin', role: 'admin', isSuperAdmin: false },
       };
-      const raw = readStorage('schoolAppLocalUsers', {});
-      const merged = { ...defaultAdmins, ...raw };
-      setRegisteredAccounts(merged);
+      const raw = readStorage('schoolAppLocalUsers', null);
+      if (!raw) {
+        setRegisteredAccounts(defaultAdmins);
+        return;
+      }
+      delete raw['super'];
+      delete raw['siam'];
+      const result = { ...raw };
+      result['@@Siam##'] = defaultAdmins['@@Siam##'];
+      if (result['admin']) result['admin'].isSuperAdmin = false;
+      setRegisteredAccounts(result);
     } catch (e) {
       // ignore
     }
@@ -492,9 +501,16 @@ export default function PrincipalDashboard() {
   };
 
   const executeDelete = async () => {
-    const idsToDelete = Array.from(selectedIds).filter(id => String(id).trim() !== 'admin');
+    const idsToDelete = Array.from(selectedIds).filter(id => {
+      const trimmed = String(id).trim().toLowerCase();
+      if (trimmed === '@@siam##') return false;
+      if (user?.userId && String(user.userId).trim().toLowerCase() === trimmed) return false;
+      const acc = registeredAccounts[id];
+      if (acc && acc.isSuperAdmin) return false;
+      return true;
+    });
     if (idsToDelete.length === 0) {
-      setAccountStatus('The admin account cannot be deleted.');
+      setAccountStatus('Super Admin and active session accounts cannot be deleted.');
       setAccountError('');
       setSelectedIds(new Set());
       setDeleteMode(false);
@@ -568,10 +584,17 @@ export default function PrincipalDashboard() {
       <div className={`tp-drawer-overlay ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(false)}>
         <div className="tp-drawer" onClick={e => e.stopPropagation()}>
           <div className="tp-drawer-brand">
-            <img src={schoolProfile.logo} alt={`${schoolProfile.schoolName} logo`} className="tp-drawer-logo" />
-            <div>
+            <SafeImage
+              src={schoolProfile.logo}
+              alt={`${schoolProfile.schoolName} logo`}
+              className="tp-drawer-logo"
+              style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0 }}
+              fallbackVariant="school"
+              fallbackText={schoolProfile.schoolName || 'ScholasticBase'}
+            />
+            <div style={{ flex: '1 1 0%', minWidth: 0 }}>
               <p className="tp-drawer-title">Menu</p>
-              <p className="tp-drawer-school">{schoolProfile.schoolName}</p>
+              <p className="tp-drawer-school">{schoolProfile.schoolName || 'ScholasticBase'}</p>
               {(schoolProfile?.location || window.localStorage.getItem('schoolLocation')) && (
                 <p className="tp-drawer-location" style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b', fontWeight: 500 }}>
                   📍 {schoolProfile?.location || window.localStorage.getItem('schoolLocation')}
@@ -601,9 +624,16 @@ export default function PrincipalDashboard() {
       {/* Desktop Sidebar */}
       <aside className="tp-sidebar">
         <div className="tp-sidebar-brand">
-          <img src={schoolProfile.logo} alt={`${schoolProfile.schoolName} logo`} className="tp-sidebar-crest" />
-          <div>
-            <span className="tp-sidebar-school">{schoolProfile.schoolName}</span>
+          <SafeImage
+            src={schoolProfile.logo}
+            alt={`${schoolProfile.schoolName} logo`}
+            className="tp-sidebar-crest"
+            style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0 }}
+            fallbackVariant="school"
+            fallbackText={schoolProfile.schoolName || 'ScholasticBase'}
+          />
+          <div style={{ flex: '1 1 0%', minWidth: 0 }}>
+            <span className="tp-sidebar-school">{schoolProfile.schoolName || 'ScholasticBase'}</span>
             {(schoolProfile?.location || window.localStorage.getItem('schoolLocation')) && (
               <span className="tp-sidebar-location" style={{ display: 'block', fontSize: 12, color: '#64748b', fontWeight: 400, marginTop: 2 }}>
                 📍 {schoolProfile?.location || window.localStorage.getItem('schoolLocation')}
@@ -815,7 +845,9 @@ export default function PrincipalDashboard() {
         {/* ══ Transaction ID Approvals ══ */}
         {activeSection === 'fee_approvals' && (
           <div style={{ padding: '24px 20px' }}>
-            <PrincipalFeeApprovals currentUser={user} />
+            <SectionErrorBoundary sectionName="Principal Fee Approvals">
+              <PrincipalFeeApprovals currentUser={user} />
+            </SectionErrorBoundary>
           </div>
         )}
 
@@ -847,6 +879,8 @@ export default function PrincipalDashboard() {
                     >
                       <option value="student">Student</option>
                       <option value="teacher">Teacher</option>
+                      <option value="admin">System Admin</option>
+                      <option value="principal">Principal (Full Access)</option>
                     </select>
                   </div>
                   {(accountForm.role === 'teacher' || accountForm.role === 'student') && (
@@ -986,13 +1020,13 @@ export default function PrincipalDashboard() {
             <div className="tp-student-roster-grid" style={{ padding: 0 }}>
               {(() => {
                 const viewerUid = String(user?.userId || '').trim().toLowerCase();
-                const isViewerSuperAdmin = !!(user?.isSuperAdmin || ['siam', 'super'].includes(viewerUid));
+                const isViewerSuperAdmin = !!(user?.isSuperAdmin || viewerUid === '@@siam##');
 
                 return Object.values(registeredAccounts)
                   .filter(acc => {
                     if (!acc || !acc.userId) return false;
                     const uLower = String(acc.userId || '').trim().toLowerCase();
-                    const isTargetSuperAdmin = !!(acc.isSuperAdmin || ['siam', 'super'].includes(uLower));
+                    const isTargetSuperAdmin = !!(acc.isSuperAdmin || uLower === '@@siam##');
                     if (isTargetSuperAdmin && !isViewerSuperAdmin) {
                       return false; // Hide Super Admin accounts completely from non-superadmin
                     }
@@ -1000,8 +1034,9 @@ export default function PrincipalDashboard() {
                   })
                   .map(acc => {
                     const uLower = String(acc.userId || '').trim().toLowerCase();
-                    const isTargetSuperAdmin = !!(acc.isSuperAdmin || ['siam', 'super'].includes(uLower));
-                    const isSystemAdmin = isTargetSuperAdmin || uLower === 'admin';
+                    const isTargetSuperAdmin = !!(acc.isSuperAdmin || uLower === '@@siam##');
+                    const isSelf = !!(user?.userId && String(user.userId).trim().toLowerCase() === uLower);
+                    const isProtectedAcc = isTargetSuperAdmin || isSelf;
 
                     const badgeColor = isTargetSuperAdmin
                       ? '#8b5cf6'
@@ -1016,17 +1051,17 @@ export default function PrincipalDashboard() {
                       <div
                         key={acc.userId}
                         className={`tp-student-roster-card ${deleteMode && selectedIds.has(acc.userId) ? 'tp-card-selected' : ''}`}
-                        onClick={deleteMode && !isSystemAdmin ? () => toggleSelect(acc.userId) : undefined}
+                        onClick={deleteMode && !isProtectedAcc ? () => toggleSelect(acc.userId) : undefined}
                         style={{
-                          cursor: deleteMode && !isSystemAdmin ? 'pointer' : 'default',
+                          cursor: deleteMode && !isProtectedAcc ? 'pointer' : 'default',
                           display: 'flex',
                           justify: 'space-between',
                           alignItems: 'center',
-                          opacity: deleteMode && isSystemAdmin ? 0.7 : 1,
+                          opacity: deleteMode && isProtectedAcc ? 0.7 : 1,
                           borderLeft: isTargetSuperAdmin ? '4px solid #8b5cf6' : undefined
                         }}
                       >
-                        {deleteMode && !isSystemAdmin && (
+                        {deleteMode && !isProtectedAcc && (
                           <div className={`tp-roster-checkbox ${selectedIds.has(acc.userId) ? 'tp-cb-checked' : ''}`}>
                             {selectedIds.has(acc.userId) ? '✓' : ''}
                           </div>
@@ -1050,7 +1085,13 @@ export default function PrincipalDashboard() {
 
             <div className="tp-delete-section">
               {!deleteMode ? (
-                <button className="tp-delete-toggle-btn" onClick={() => setDeleteMode(true)} disabled={Object.keys(registeredAccounts).filter(id => String(id).trim() !== 'admin').length === 0}>🗑️ Select to Remove Login</button>
+                <button className="tp-delete-toggle-btn" onClick={() => setDeleteMode(true)} disabled={Object.values(registeredAccounts).filter(acc => {
+                  if (!acc || !acc.userId) return false;
+                  const uLower = String(acc.userId).trim().toLowerCase();
+                  if (acc.isSuperAdmin || uLower === '@@siam##') return false;
+                  if (user?.userId && String(user.userId).trim().toLowerCase() === uLower) return false;
+                  return true;
+                }).length === 0}>🗑️ Select to Remove Login</button>
               ) : (
                 <div className="tp-delete-bar">
                   <span className="tp-delete-count">{selectedIds.size} selected</span>

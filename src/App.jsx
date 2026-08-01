@@ -14,6 +14,7 @@ import StudentView from './components/StudentView.jsx';
 import PrincipalDashboard from './components/PrincipalDashboard.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import SuperAdminSwitcher from './components/SuperAdminSwitcher.jsx';
+import SectionErrorBoundary from './components/SectionErrorBoundary.jsx';
 
 export default function App() {
   return (
@@ -34,7 +35,9 @@ export default function App() {
                   path="/admin"
                   element={
                     <ProtectedRoute allowedRoles={['admin']}>
-                      <AdminDashboard />
+                      <SectionErrorBoundary sectionName="Admin Panel">
+                        <AdminDashboard />
+                      </SectionErrorBoundary>
                     </ProtectedRoute>
                   }
                 />
@@ -42,7 +45,9 @@ export default function App() {
                   path="/teacher"
                   element={
                     <ProtectedRoute allowedRoles={['teacher', 'admin']}>
-                      <TeacherPanel />
+                      <SectionErrorBoundary sectionName="Teacher Panel">
+                        <TeacherPanel />
+                      </SectionErrorBoundary>
                     </ProtectedRoute>
                   }
                 />
@@ -50,7 +55,9 @@ export default function App() {
                   path="/student"
                   element={
                     <ProtectedRoute allowedRoles={['student', 'admin']}>
-                      <StudentView />
+                      <SectionErrorBoundary sectionName="Student Portal">
+                        <StudentView />
+                      </SectionErrorBoundary>
                     </ProtectedRoute>
                   }
                 />
@@ -58,7 +65,9 @@ export default function App() {
                   path="/principal"
                   element={
                     <ProtectedRoute allowedRoles={['principal', 'admin']}>
-                      <PrincipalDashboard />
+                      <SectionErrorBoundary sectionName="Principal Dashboard">
+                        <PrincipalDashboard />
+                      </SectionErrorBoundary>
                     </ProtectedRoute>
                   }
                 />

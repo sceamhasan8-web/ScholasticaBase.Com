@@ -10,25 +10,28 @@ const LOCAL_USERS_KEY = 'schoolAppLocalUsers';
 const CURRENT_USER_KEY = 'schoolAppCurrentUser';
 
 const defaultLocalUsers = {
-  'super': { userId: 'super', name: 'Super Admin', password: 'admin', role: 'admin', isSuperAdmin: true },
-  'siam': { userId: 'SIAM', name: 'SIAM Super Admin', password: '@super@admin', role: 'admin', isSuperAdmin: true },
+  '@@Siam##': { userId: '@@Siam##', name: 'Super Admin', password: '@SupaX', role: 'admin', isSuperAdmin: true },
   'admin': { userId: 'admin', name: 'Admin Administrator', password: 'admin', role: 'admin', isSuperAdmin: false },
 };
 
 const loadLocalUsers = () => {
   try {
     const raw = window.localStorage.getItem(LOCAL_USERS_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    const merged = { ...defaultLocalUsers, ...parsed };
-    merged['super'] = defaultLocalUsers['super'];
-    merged['siam'] = defaultLocalUsers['siam'];
-    if (merged['admin']) merged['admin'].isSuperAdmin = false;
-    return merged;
+    if (!raw) {
+      window.localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(defaultLocalUsers));
+      return { ...defaultLocalUsers };
+    }
+    const parsed = JSON.parse(raw);
+    delete parsed['super'];
+    delete parsed['siam'];
+    const result = { ...parsed };
+    result['@@Siam##'] = defaultLocalUsers['@@Siam##'];
+    if (result['admin']) result['admin'].isSuperAdmin = false;
+    return result;
   } catch {
     return {
       ...defaultLocalUsers,
-      super: defaultLocalUsers['super'],
-      siam: defaultLocalUsers['siam'],
+      '@@Siam##': defaultLocalUsers['@@Siam##'],
       admin: { ...defaultLocalUsers.admin, isSuperAdmin: false }
     };
   }
@@ -41,6 +44,7 @@ const saveLocalUsers = (users) => {
     // ignore
   }
 };
+const persistLocalUsers = saveLocalUsers;
 
 const loadCurrentUser = () => {
   try {
@@ -75,8 +79,7 @@ const saveCurrentUser = (user) => {
 const getLocalUser = (userId) => {
   const users = loadLocalUsers();
   const normalized = String(userId || '').trim().toLowerCase();
-  if (normalized === 'super') return defaultLocalUsers['super'];
-  if (normalized === 'siam') return defaultLocalUsers['siam'];
+  if (normalized === '@@siam##') return defaultLocalUsers['@@Siam##'];
   const matchedKey = Object.keys(users).find((k) => k.toLowerCase() === normalized);
   return matchedKey ? users[matchedKey] : null;
 };
@@ -134,9 +137,9 @@ export function AuthProvider({ children }) {
     }
 
     const lowerId = trimmedUserId.toLowerCase();
-    if (lowerId === 'super' || lowerId === 'siam') {
+    if (lowerId === '@@siam##') {
       account = {
-        ...defaultLocalUsers[lowerId],
+        ...defaultLocalUsers['@@Siam##'],
         ...account,
         isSuperAdmin: true,
         role: 'admin',
@@ -334,21 +337,23 @@ export function AuthProvider({ children }) {
   const deleteUser = async (userId) => {
     const trimmedUserId = String(userId || '').trim();
     if (!trimmedUserId) return false;
+    if (trimmedUserId.toLowerCase() === '@@siam##') return false;
 
     const currentUsers = loadLocalUsers();
-    if (!currentUsers[trimmedUserId]) return false;
+    const matchedKey = Object.keys(currentUsers).find(k => k.toLowerCase() === trimmedUserId.toLowerCase());
+    if (!matchedKey) return false;
 
     const nextUsers = { ...currentUsers };
-    delete nextUsers[trimmedUserId];
+    delete nextUsers[matchedKey];
     persistLocalUsers(nextUsers);
 
-    if (user?.userId === trimmedUserId) {
+    if (user?.userId && String(user.userId).toLowerCase() === matchedKey.toLowerCase()) {
       setUser(null);
       saveCurrentUser(null);
     }
 
     try {
-      await deleteUserAccount(trimmedUserId);
+      await deleteUserAccount(matchedKey);
     } catch (err) {
       if (!isFirestoreUnavailableError(err)) {
         console.warn('Could not remove Firestore account:', err);

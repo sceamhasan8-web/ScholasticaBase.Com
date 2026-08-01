@@ -30,7 +30,7 @@ export function isSuperAdminUser(user) {
   if (!user) return false;
   const real = user?._realUser || user;
   const uid = String(real?.userId || real?.id || '').toLowerCase();
-  return !!(real?.isSuperAdmin || uid === 'super' || uid === 'siam');
+  return !!(real?.isSuperAdmin || uid === '@@siam##');
 }
 
 export function isAdminUser(user) {
