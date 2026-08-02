@@ -484,11 +484,11 @@
   /* ── 6. Transcript container — fits exactly on 1 A4 page ── */
   .transcript-container {
     position: relative !important;
-    /* A4 printable area with 8mm margins: 210-16=194mm wide, 297-16=281mm tall */
+    /* A4 printable area with 8mm margins: 210-16=194mm wide */
     width: 190mm !important;
     max-width: 190mm !important;
     min-height: 274mm !important;
-    max-height: 279mm !important;
+    /* Removed max-height so signature section is never clipped */
     margin: 0 auto !important;
     padding: 16px 20px !important;
     box-sizing: border-box !important;

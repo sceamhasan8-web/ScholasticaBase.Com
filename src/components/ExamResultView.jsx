@@ -1803,7 +1803,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       {/* Printable Header (Visible during print) */}
       <div className="print-header" style={{ marginBottom: '14px', borderBottom: '2px solid #000', paddingBottom: '8px' }}>
         <div>
-          <h1 className="print-institution-name" style={{ margin: 0, fontSize: '18pt', fontWeight: 900, color: '#000' }}>{schoolProfile?.schoolName || 'ScholasticBase'}</h1>
+          <h1 className="print-institution-name" style={{ margin: 0, fontSize: '18pt', fontWeight: 900, color: '#000' }}>{getSchoolNameByClass(searchClass || '', schoolProfile) || schoolProfile?.schoolName || 'ScholasticBase'}</h1>
           {(schoolProfile?.location || window.localStorage.getItem('schoolLocation')) && (
             <p className="print-school-location" style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
               📍 {schoolProfile?.location || window.localStorage.getItem('schoolLocation')}
@@ -2149,7 +2149,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
         <PrintContainer
           title={`${activeExamName} — Report Card`}
           subtitle={`Class: ${selectedStudent.class} · Roll No: ${selectedStudent.roll}`}
-          schoolName={schoolProfile?.schoolName || getSchoolNameByClass(selectedStudent.class)}
+          schoolName={getSchoolNameByClass(selectedStudent.class, schoolProfile) || schoolProfile?.schoolName}
           eiinNumber={schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')}
           location={schoolProfile?.location || window.localStorage.getItem('schoolLocation')}
           singlePageFit={true}
@@ -2162,7 +2162,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
             className="transcript-container"
             style={{
               position: 'relative',
-              overflow: 'hidden',
+              overflow: 'visible',
               padding: '24px 28px',
               backgroundColor: '#FFF2F2',
               background: '#FFF2F2',
@@ -2276,46 +2276,33 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                     lineHeight: '1.8',
                   }}
                 >
-                  {(schoolProfile?.schoolName || getSchoolNameByClass(selectedStudent.class)).toUpperCase()}
+                  {(getSchoolNameByClass(selectedStudent.class, schoolProfile) || schoolProfile?.schoolName || '').toUpperCase()}
                 </div>
               )}
             </div>
 
             <div className="transcript-content-body" style={{ position: 'relative', zIndex: 1 }}>
-              {/* Header Section */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-                {/* Left Header Info */}
-                <div>
-                  <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#1e3a8a', fontFamily: "'Times New Roman', serif", textTransform: 'uppercase', letterSpacing: '-0.3px' }}>
-                    {schoolProfile?.schoolName || getSchoolNameByClass(selectedStudent.class)}
-                  </h1>
-                  {(schoolProfile?.location || window.localStorage.getItem('schoolLocation')) && (
-                    <p style={{ margin: '4px 0 2px', fontSize: '12px', color: '#dc2626', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      📍 <span style={{ color: '#475569' }}>{schoolProfile?.location || window.localStorage.getItem('schoolLocation')}</span>
-                    </p>
-                  )}
-                  {(schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')) && (
-                    <p style={{ margin: '2px 0 0', fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
-                      EIIN: {schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')}
-                    </p>
-                  )}
-                </div>
-
-                {/* Right Header Document Title */}
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '13px', fontWeight: '800', color: '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
-                    {activeExamName}
-                  </div>
-                  <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#1e3a8a', fontFamily: "'Times New Roman', serif", textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                    ACADEMIC PROGRESS REPORT CARD
-                  </h2>
-                  <p style={{ margin: '4px 0 2px', fontSize: '13px', color: '#334155', fontWeight: '700' }}>
-                    Class: {selectedStudent.class} · Roll No: {selectedStudent.roll}
+              {/* Header Section — Centered */}
+              <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+                <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#1e3a8a', fontFamily: "'Times New Roman', serif", textTransform: 'uppercase', letterSpacing: '-0.3px' }}>
+                  {getSchoolNameByClass(selectedStudent.class, schoolProfile) || schoolProfile?.schoolName}
+                </h1>
+                {(schoolProfile?.location || window.localStorage.getItem('schoolLocation')) && (
+                  <p style={{ margin: '4px 0 2px', fontSize: '12px', color: '#475569', fontWeight: '600' }}>
+                    📍 {schoolProfile?.location || window.localStorage.getItem('schoolLocation')}
                   </p>
-                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b', fontWeight: '600' }}>
-                    Date: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                )}
+                {(schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')) && (
+                  <p style={{ margin: '2px 0 4px', fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+                    EIIN: {schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')}
                   </p>
+                )}
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>
+                  {activeExamName}
                 </div>
+                <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+                  Date: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </p>
               </div>
 
               {/* Horizontal Navy Line */}

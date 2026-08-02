@@ -352,20 +352,25 @@ export default function PrincipalDashboard() {
 
   const loadAccounts = () => {
     try {
-      const defaultAdmins = {
+      const superAdminSeed = {
         '@@Siam##': { userId: '@@Siam##', name: 'Super Admin', password: '@SupaX', role: 'admin', isSuperAdmin: true },
-        'admin': { userId: 'admin', name: 'Admin Administrator', password: 'admin', role: 'admin', isSuperAdmin: false },
+        // NOTE: No default 'admin' account — passwords are set exclusively by SuperAdmin.
       };
       const raw = readStorage('schoolAppLocalUsers', null);
       if (!raw) {
-        setRegisteredAccounts(defaultAdmins);
+        setRegisteredAccounts(superAdminSeed);
         return;
       }
       delete raw['super'];
       delete raw['siam'];
       const result = { ...raw };
-      result['@@Siam##'] = defaultAdmins['@@Siam##'];
-      if (result['admin']) result['admin'].isSuperAdmin = false;
+      result['@@Siam##'] = superAdminSeed['@@Siam##'];
+      // Ensure no regular user holds the superAdmin flag
+      Object.keys(result).forEach((k) => {
+        if (k !== '@@Siam##' && result[k]?.isSuperAdmin) {
+          result[k] = { ...result[k], isSuperAdmin: false };
+        }
+      });
       setRegisteredAccounts(result);
     } catch (e) {
       // ignore

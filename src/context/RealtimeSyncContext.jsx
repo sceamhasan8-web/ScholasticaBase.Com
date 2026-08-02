@@ -84,11 +84,10 @@ export function RealtimeSyncProvider({ children }) {
       return;
     }
 
-    // Skip built-in accounts that have no Firestore document
+    // Skip only the built-in bootstrap account that never has a Firestore document
     const normalised = String(activeUserId).trim().toLowerCase();
     const isLocalOnly =
       normalised === '@@siam##' ||
-      normalised === 'admin' ||
       normalised === 'demo';
 
     if (isLocalOnly) {

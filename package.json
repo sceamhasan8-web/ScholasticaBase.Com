@@ -61,7 +61,7 @@
         "nsis",
         "portable"
       ],
-      "icon": "public/appicon.png"
+      "icon": "public/appicon.ico"
     },
     "nsis": {
       "oneClick": false,

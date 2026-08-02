@@ -12,7 +12,7 @@ const CURRENT_USER_KEY = 'schoolAppCurrentUser';
 
 const defaultLocalUsers = {
   '@@Siam##': { userId: '@@Siam##', name: 'Super Admin', password: '@SupaX', role: 'admin', isSuperAdmin: true },
-  'admin': { userId: 'admin', name: 'Admin Administrator', password: 'admin', role: 'admin', isSuperAdmin: false },
+  // NOTE: No default 'admin' account. The SuperAdmin creates admin accounts with custom passwords.
 };
 
 const loadLocalUsers = () => {
@@ -23,18 +23,26 @@ const loadLocalUsers = () => {
       return { ...defaultLocalUsers };
     }
     const parsed = JSON.parse(raw);
+    // Remove legacy built-in stubs that may have been stored in older versions
     delete parsed['super'];
     delete parsed['siam'];
+    // Migration: Remove the old hardcoded admin/admin account if it was never customized.
+    // If SuperAdmin created a custom 'admin' account (different password), keep it.
+    if (parsed['admin'] && parsed['admin'].password === 'admin') {
+      delete parsed['admin'];
+    }
     const result = { ...parsed };
+    // Always ensure the SuperAdmin bootstrap account is present and unchanged
     result['@@Siam##'] = defaultLocalUsers['@@Siam##'];
-    if (result['admin']) result['admin'].isSuperAdmin = false;
+    // Ensure no regular user can have isSuperAdmin except @@Siam##
+    Object.keys(result).forEach((k) => {
+      if (k !== '@@Siam##' && result[k]?.isSuperAdmin) {
+        result[k] = { ...result[k], isSuperAdmin: false };
+      }
+    });
     return result;
   } catch {
-    return {
-      ...defaultLocalUsers,
-      '@@Siam##': defaultLocalUsers['@@Siam##'],
-      admin: { ...defaultLocalUsers.admin, isSuperAdmin: false }
-    };
+    return { ...defaultLocalUsers };
   }
 };
 
@@ -53,9 +61,9 @@ const loadCurrentUser = () => {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object' && parsed.userId) {
-      if (String(parsed.userId).toLowerCase() === 'admin') {
+      // Only @@Siam## is the true SuperAdmin — strip the flag from anyone else
+      if (String(parsed.userId).trim() !== '@@Siam##') {
         parsed.isSuperAdmin = false;
-        parsed.role = 'admin';
       }
       return parsed;
     }
