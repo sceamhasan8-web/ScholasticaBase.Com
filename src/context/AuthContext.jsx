@@ -1,9 +1,10 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { deleteUserAccount, getUserAccount, saveUserAccount, fetchSchoolProfileByEiin } from '../firebase/firestoreSchema.js';
 import { findRegisteredSchoolByEiin, registerSchoolInRegistry, getAllStudents } from '../utils/schoolData.js';
 import { useNavigate } from 'react-router-dom';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase/firebase.js';
+import { useRealtimeSyncContext } from './RealtimeSyncContext.jsx';
 
 const AuthContext = createContext(null);
 const LOCAL_USERS_KEY = 'schoolAppLocalUsers';
@@ -104,6 +105,117 @@ export function AuthProvider({ children }) {
   const [loading] = useState(false);  // localStorage is sync — no delay needed
   const [localUsers, setLocalUsers] = useState(loadLocalUsers());
   const navigate = useNavigate();
+
+  // ── Real-time sync integration ────────────────────────────────────────────
+  const { liveUserAccount, notifyUserChanged } = useRealtimeSyncContext();
+
+  // Notify RealtimeSyncContext whenever the active userId changes so it can
+  // start or stop the user-account Firestore listener accordingly.
+  useEffect(() => {
+    notifyUserChanged(user?.userId ?? null);
+  }, [user?.userId, notifyUserChanged]);
+
+  // When Firestore pushes a live update for the current user's account,
+  // merge the changed fields into the in-memory session and re-persist to
+  // localStorage — keeping all tabs / devices in sync automatically.
+  const liveUserRef = useRef(null);
+
+  // Reset the change-detection ref whenever the logged-in user switches.
+  // Without this, a stale previous-user snapshot would be compared against
+  // the new user's fresh Firestore data on the first update after login,
+  // causing the merge to be incorrectly skipped.
+  useEffect(() => {
+    liveUserRef.current = null;
+  }, [user?.userId]);
+
+  useEffect(() => {
+    if (!liveUserAccount || !user) return;
+
+    // Only merge when the live data actually belongs to the current session
+    const sameUser =
+      String(liveUserAccount.userId || '').trim().toLowerCase() ===
+      String(user.userId || '').trim().toLowerCase();
+    if (!sameUser) return;
+
+    // Skip if nothing meaningful changed (avoid unnecessary state churn).
+    // Compare against the last-seen live snapshot, not the session state,
+    // to detect Firestore-side changes even if session was already merged.
+    const prev = liveUserRef.current;
+    const hasChanged =
+      !prev ||
+      prev.name !== liveUserAccount.name ||
+      prev.role !== liveUserAccount.role ||
+      prev.password !== liveUserAccount.password ||
+      prev.classTeacherKey !== liveUserAccount.classTeacherKey ||
+      JSON.stringify(prev.classTeacherClassIdxList) !==
+        JSON.stringify(liveUserAccount.classTeacherClassIdxList) ||
+      JSON.stringify(prev.classTeacherClassNames) !==
+        JSON.stringify(liveUserAccount.classTeacherClassNames);
+
+    if (!hasChanged) return;
+
+    // Stamp the last-seen live snapshot BEFORE calling setUser to prevent
+    // a re-render loop if the state update triggers this effect again.
+    liveUserRef.current = liveUserAccount;
+
+    // ── Update schoolAppLocalUsers with the full Firestore account ──────────
+    // This is critical for PASSWORD SYNC:
+    // When admin changes a user's password on Device A, Firestore updates.
+    // Device B gets the live update here. We now write the new password
+    // into schoolAppLocalUsers so that even OFFLINE login on this device
+    // uses the new password — not the stale localStorage-cached one.
+    const latestLocalUsers = loadLocalUsers();
+    const existingLocalKey = Object.keys(latestLocalUsers).find(
+      (k) => k.toLowerCase() === String(liveUserAccount.userId || '').trim().toLowerCase()
+    );
+    if (existingLocalKey) {
+      const updatedLocalAccount = {
+        ...latestLocalUsers[existingLocalKey],
+        // Sync all fields that admin can change
+        name: liveUserAccount.name || latestLocalUsers[existingLocalKey].name,
+        role: liveUserAccount.role || latestLocalUsers[existingLocalKey].role,
+        // ✅ Password sync — this is the key fix
+        ...(liveUserAccount.password ? { password: liveUserAccount.password } : {}),
+        classTeacherKey: liveUserAccount.classTeacherKey ?? latestLocalUsers[existingLocalKey].classTeacherKey,
+        classTeacherClassIdxList: liveUserAccount.classTeacherClassIdxList ?? latestLocalUsers[existingLocalKey].classTeacherClassIdxList,
+        classTeacherClassNames: liveUserAccount.classTeacherClassNames ?? latestLocalUsers[existingLocalKey].classTeacherClassNames,
+        classTeacherClassIdx: liveUserAccount.classTeacherClassIdx ?? latestLocalUsers[existingLocalKey].classTeacherClassIdx,
+        classTeacherClassName: liveUserAccount.classTeacherClassName ?? latestLocalUsers[existingLocalKey].classTeacherClassName,
+      };
+      saveLocalUsers({ ...latestLocalUsers, [existingLocalKey]: updatedLocalAccount });
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
+    // Merge safe session fields into the active in-memory user state.
+    // Note: password is intentionally NOT put in the session object —
+    // it only belongs in schoolAppLocalUsers for login verification.
+    setUser((current) => {
+      if (!current) return current;
+      const merged = {
+        ...current,
+        // Updatable profile fields
+        name: liveUserAccount.name || current.name,
+        role: liveUserAccount.role || current.role,
+        // Class-teacher assignment fields
+        classTeacherKey: liveUserAccount.classTeacherKey ?? current.classTeacherKey,
+        classTeacherClassIdxList:
+          liveUserAccount.classTeacherClassIdxList ?? current.classTeacherClassIdxList,
+        classTeacherClassNames:
+          liveUserAccount.classTeacherClassNames ?? current.classTeacherClassNames,
+        classTeacherClassIdx:
+          liveUserAccount.classTeacherClassIdx ?? current.classTeacherClassIdx,
+        classTeacherClassName:
+          liveUserAccount.classTeacherClassName ?? current.classTeacherClassName,
+      };
+      saveCurrentUser(merged);
+      return merged;
+    });
+  // liveUserAccount changes drive the merge; user.userId is handled by the
+  // reset effect above so it doesn't need to be a dependency here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveUserAccount]);
+  // ─────────────────────────────────────────────────────────────────────────
+
 
   const persistLocalUsers = (nextUsers) => {
     setLocalUsers(nextUsers);

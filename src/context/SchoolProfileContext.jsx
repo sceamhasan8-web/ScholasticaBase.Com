@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import defaultLogo from '../greenfield_logo.png';
-import { getSchoolProfile, saveSchoolProfile as saveSchoolProfileDoc } from '../firebase/firestoreSchema.js';
+import { saveSchoolProfile as saveSchoolProfileDoc } from '../firebase/firestoreSchema.js';
 import { useAuth } from './AuthContext.jsx';
 import { registerSchoolInRegistry } from '../utils/schoolData.js';
+import { useRealtimeSyncContext } from './RealtimeSyncContext.jsx';
 
 const SCHOOL_PROFILE_KEY = 'schoolAppProfile';
 
@@ -127,7 +128,6 @@ const saveSchoolProfile = (profile) => {
     }
 };
 
-const loadSchoolProfileFromFirestore = () => getSchoolProfile();
 const saveSchoolProfileToFirestore = (profile) => saveSchoolProfileDoc(profile);
 
 export function SchoolProfileProvider({ children }) {
@@ -153,6 +153,7 @@ export function SchoolProfileProvider({ children }) {
             setSchoolProfileState(loadSchoolProfile());
         };
 
+
         window.addEventListener('storage', handleStorageChange);
         window.addEventListener('schoolDataUpdate', handleCustomUpdate);
         return () => {
@@ -161,34 +162,43 @@ export function SchoolProfileProvider({ children }) {
         };
     }, []);
 
+    // ── Real-time Firestore sync ──────────────────────────────────────────────
+    // Subscribe to live school profile updates pushed from RealtimeSyncContext
+    // (which owns the onSnapshot listener on schoolData/schoolProfile).
+    // This replaces the previous one-time async fetch, giving us live updates
+    // across all browser tabs and devices without a page reload.
+    const { liveSchoolProfile } = useRealtimeSyncContext();
+
     useEffect(() => {
-        let active = true;
+        if (!liveSchoolProfile) return;
 
-        const syncSchoolProfile = async () => {
-            try {
-                const remoteProfile = await loadSchoolProfileFromFirestore();
-                if (!active || !remoteProfile) return;
-
-                const nextProfile = {
-                    ...defaultSchoolProfile,
-                    ...remoteProfile,
-                    logo: sanitizeLogoUrl(remoteProfile.logo || window.localStorage.getItem('schoolLogo') || defaultSchoolProfile.logo),
-                    schoolName: remoteProfile.schoolName || window.localStorage.getItem('schoolName') || defaultSchoolProfile.schoolName,
-                    eiinNumber: remoteProfile.eiinNumber || window.localStorage.getItem('schoolEiinNumber') || defaultSchoolProfile.eiinNumber,
-                    location: remoteProfile.location !== undefined ? remoteProfile.location : (window.localStorage.getItem('schoolLocation') || defaultSchoolProfile.location || ''),
-                };
-                setSchoolProfileState(nextProfile);
-                saveSchoolProfile(nextProfile);
-            } catch (err) {
-                console.warn('Could not load school profile from Firestore. Using local cache.', err);
-            }
+        const nextProfile = {
+            ...defaultSchoolProfile,
+            ...liveSchoolProfile,
+            logo: sanitizeLogoUrl(
+                liveSchoolProfile.logo ||
+                window.localStorage.getItem('schoolLogo') ||
+                defaultSchoolProfile.logo
+            ),
+            schoolName:
+                liveSchoolProfile.schoolName ||
+                window.localStorage.getItem('schoolName') ||
+                defaultSchoolProfile.schoolName,
+            eiinNumber:
+                liveSchoolProfile.eiinNumber ||
+                window.localStorage.getItem('schoolEiinNumber') ||
+                defaultSchoolProfile.eiinNumber,
+            location:
+                liveSchoolProfile.location !== undefined
+                    ? liveSchoolProfile.location
+                    : (window.localStorage.getItem('schoolLocation') || defaultSchoolProfile.location || ''),
         };
 
-        syncSchoolProfile();
-        return () => {
-            active = false;
-        };
-    }, []);
+        setSchoolProfileState(nextProfile);
+        saveSchoolProfile(nextProfile);
+    }, [liveSchoolProfile]);
+    // ─────────────────────────────────────────────────────────────────────────
+
 
     const persistProfile = (profile) => {
         saveSchoolProfile(profile);

@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  base: './',
+  base: '/',
   plugins: [react()],
   optimizeDeps: {
     // Pre-bundle React first to guarantee a single instance across all modules.
