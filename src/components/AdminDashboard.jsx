@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useRealtimeSyncContext } from '../context/RealtimeSyncContext.jsx';
 import { useSchoolProfile } from '../context/SchoolProfileContext.jsx';
 import { SCHOOL_BRANCHES, getBranchKeyByClass, filterClassesByBranch, extractClassNumber, getResolvedBranches, sortClasses } from '../utils/schoolResolver.js';
 import { subscribeToTeacherPanelData, saveTeacherPanelData, saveClassRecord, purgeResultsForStudents } from '../firebase/firestoreSchema.js';
@@ -453,6 +454,7 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const { user, signOut, createUser, deleteUser } = useAuth();
+  const { liveUsersVersion } = useRealtimeSyncContext();
   const { schoolProfile: rawSchoolProfile, setSchoolProfile, resetSchoolProfile } = useSchoolProfile();
   const schoolProfile = rawSchoolProfile || { schoolName: 'ScholasticBase', logo: '', adminEmail: 'admin@scholasticbase.edu' };
   const [activeTab, setActiveTab] = useState('overview'); // overview, accounts, teachers, students, exams, notices, fees, profile
@@ -763,9 +765,22 @@ export default function AdminDashboard() {
     }
   };
 
+  // ── Reactive account list ────────────────────────────────────────────
+  // Triggered by: initial mount, school change, and liveUsersVersion change.
+  // liveUsersVersion is incremented by RealtimeSyncContext's Firestore
+  // users-collection onSnapshot every time any user doc is created/updated.
+  // This makes the accounts list instantly reactive across all admin devices.
   useEffect(() => {
     loadAccounts();
-  }, [activeSchoolId]);
+  }, [activeSchoolId, liveUsersVersion]);
+
+  // Also react to same-tab merges dispatched by mergeUsersIntoLocalStorage
+  // (the Firestore push on the current device fires a custom DOM event).
+  useEffect(() => {
+    const handleUsersUpdate = () => loadAccounts();
+    window.addEventListener('schoolUsersUpdate', handleUsersUpdate);
+    return () => window.removeEventListener('schoolUsersUpdate', handleUsersUpdate);
+  }, []);
 
   useEffect(() => {
     try {

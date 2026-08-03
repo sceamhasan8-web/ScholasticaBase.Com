@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import { PortalSkeleton } from './SkeletonLoader.jsx';
 
 function RedirectNotice({ to, message }) {
   const navigate = useNavigate();
@@ -24,14 +25,7 @@ export default function ProtectedRoute({ children, allowedRoles = [] }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="page-shell">
-        <div className="page-shell-card">
-          <p>Checking access…</p>
-          <small>Loading your portal.</small>
-        </div>
-      </div>
-    );
+    return <PortalSkeleton message="Authenticating & verifying permissions..." />;
   }
 
   if (!user) {

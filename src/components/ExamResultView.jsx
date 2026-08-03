@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { deleteResultEntry, saveResultEntry, subscribeToResults, subscribeToExams, saveExamSession, deleteExamSession, getStoredResultsFromLocal } from '../firebase/firestoreSchema.js';
 import { getBangladeshGradeInfo, getDynamicGradeInfo, getDynamicGradeInfoWithComponents, resolveRuleTotals } from '../utils/bangladeshGrading.js';
 import { useSchoolProfile } from '../context/SchoolProfileContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useViewMode } from '../context/ViewModeContext.jsx';
-import { getSchoolNameByClass, getBranchKeyByClass, SCHOOL_BRANCHES, sortClasses } from '../utils/schoolResolver.js';
+import { getSchoolNameByClass, getBranchKeyByClass, getBranchByClass, SCHOOL_BRANCHES, sortClasses } from '../utils/schoolResolver.js';
 import useTranslation from '../hooks/useTranslation.js';
 import useConfirm from '../hooks/useConfirm.js';
 import useAlert from '../hooks/useAlert.js';
@@ -191,6 +191,9 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedResultKeys, setSelectedResultKeys] = useState([]);
   const [deletedResultKeys, setDeletedResultKeys] = useState([]);
+
+  // Ref for the tabulation sheet DOM node (used for targeted print)
+  const tabulationRef = useRef(null);
 
   // Exam States
   const [examSessions, setExamSessions] = useState(() => getStoredExamSessions(activeSchoolId));
@@ -1236,17 +1239,203 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     setSelectedStudentKey(null);
   };
 
+  /**
+   * computeMarksheetZoom
+   * Measures the on-screen transcript-container and returns a CSS zoom value
+   * that guarantees the entire marksheet fits on one A4 portrait page.
+   *
+   * A4 portrait usable area (8 mm margins each side):
+   *   width  = 210mm - 16mm = 194mm  ≈ 734 px  @ 96 dpi
+   *   height = 297mm - 16mm = 281mm  ≈ 1062 px @ 96 dpi
+   *
+   * CSS `zoom` is layout-affecting (unlike transform:scale) so both width and
+   * height are properly shrunk in the browser's layout engine before printing.
+   */
+  const computeMarksheetZoom = () => {
+    const A4_W = 860;   // px at 96 dpi (expanded A4 width to eliminate side margins)
+    const A4_H = 1190;  // px at 96 dpi (expanded A4 height)
+    const el = document.querySelector('.transcript-container');
+    if (!el) return 1;
+    // Temporarily remove any previously injected zoom so we measure natural size
+    const prev = document.getElementById('marksheet-portrait-override');
+    const prevZoom = el.style.zoom;
+    if (prev) el.style.zoom = '1';
+    const w = el.scrollWidth || 750;
+    const h = el.scrollHeight || 950;
+    if (prev) el.style.zoom = prevZoom;
+    const zoomW = A4_W / w;
+    const zoomH = A4_H / h;
+    return Math.max(0.4, Math.min(1.1, zoomW, zoomH));
+  };
+
+  const _triggerMarksheetPrint = () => {
+    document.body.classList.remove('print-mode-tabulation');
+    document.body.classList.add('print-mode-transcript');
+
+    const zoom = computeMarksheetZoom();
+
+    // Build the injected style:
+    //  1. Force A4 portrait page with 0 margins
+    //  2. Negative-offset fixed viewport overlay (-22px) to expand marksheet edge-to-edge
+    //  3. Compact table/section padding in print mode so height stays slim while width fills paper
+    const styleContent = [
+      '@media print {',
+      '  @page { size: A4 portrait !important; margin: 0 !important; }',
+      '  @page portrait-page { size: A4 portrait !important; margin: 0 !important; }',
+      '  html, body {',
+      '    height: 100% !important;',
+      '    min-height: 100% !important;',
+      '    margin: 0 !important;',
+      '    padding: 0 !important;',
+      '    overflow: hidden !important;',
+      '  }',
+      '  body.print-mode-transcript .mark-sheet-print-area-wrapper {',
+      '    display: flex !important;',
+      '    flex-direction: column !important;',
+      '    justify-content: center !important;',
+      '    align-items: center !important;',
+      '    position: fixed !important;',
+      '    top: -22px !important;',
+      '    left: -22px !important;',
+      '    right: -22px !important;',
+      '    bottom: -22px !important;',
+      '    width: calc(100vw + 44px) !important;',
+      '    height: calc(100vh + 44px) !important;',
+      '    margin: 0 !important;',
+      '    padding: 0 !important;',
+      '    box-sizing: border-box !important;',
+      '    background: #ffffff !important;',
+      '    z-index: 999999 !important;',
+      '    overflow: visible !important;',
+      '    page-break-after: avoid !important;',
+      '    break-after: avoid !important;',
+      '    page-break-inside: avoid !important;',
+      '    break-inside: avoid !important;',
+      '    page: portrait-page !important;',
+      '  }',
+      '  .mark-sheet-print-area-wrapper .print-wrapper-root,',
+      '  .mark-sheet-print-area-wrapper .print-container,',
+      '  .mark-sheet-print-area-wrapper [data-print-container="true"] {',
+      '    position: relative !important;',
+      '    width: 100% !important;',
+      '    height: 100% !important;',
+      '    display: flex !important;',
+      '    flex-direction: column !important;',
+      '    justify-content: center !important;',
+      '    align-items: center !important;',
+      '    margin: 0 auto !important;',
+      '    padding: 0 !important;',
+      '    box-sizing: border-box !important;',
+      '    background: transparent !important;',
+      '    overflow: visible !important;',
+      '  }',
+      '  .transcript-container {',
+      `    zoom: ${zoom.toFixed(4)} !important;`,
+      '    width: 100% !important;',
+      '    max-width: none !important;',
+      '    height: auto !important;',
+      '    min-height: auto !important;',
+      '    margin: 0 auto !important;',
+      '    padding: 10px 14px !important;',
+      '    overflow: visible !important;',
+      '    page-break-inside: avoid !important;',
+      '    break-inside: avoid !important;',
+      '    page-break-after: avoid !important;',
+      '    break-after: avoid !important;',
+      '  }',
+      '  .transcript-performance-table th,',
+      '  .transcript-performance-table td {',
+      '    padding: 4px 6px !important;',
+      '    font-size: 11px !important;',
+      '  }',
+      '  .transcript-student-section {',
+      '    margin-bottom: 6px !important;',
+      '    gap: 8px !important;',
+      '  }',
+      '  .transcript-table-container {',
+      '    margin-bottom: 6px !important;',
+      '  }',
+      '  .transcript-summary-grid {',
+      '    margin-bottom: 6px !important;',
+      '  }',
+      '  .transcript-summary-cell {',
+      '    padding: 4px 2px !important;',
+      '  }',
+      '}',
+    ].join('\n');
+
+    const styleEl = document.createElement('style');
+    styleEl.id = 'marksheet-portrait-override';
+    styleEl.textContent = styleContent;
+    document.head.appendChild(styleEl);
+
+    const cleanup = () => {
+      document.body.classList.remove('print-mode-transcript');
+      const el = document.getElementById('marksheet-portrait-override');
+      if (el) el.remove();
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+  };
+
   const handlePrintMarkSheet = () => {
-    if (typeof window !== 'undefined') {
-      window.print();
-    }
+    if (typeof window !== 'undefined') _triggerMarksheetPrint();
   };
 
   const handleDownloadPdf = () => {
-    if (typeof window !== 'undefined') {
-      window.print();
-    }
+    if (typeof window !== 'undefined') _triggerMarksheetPrint();
   };
+
+  /**
+   * handlePrintTabulation
+   * Hides all DOM siblings of the tabulation sheet's ancestor chain so only
+   * the sheet is in layout — allows multi-page pagination with position:static.
+   */
+  const handlePrintTabulation = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const sheet = tabulationRef.current;
+    if (!sheet) { window.print(); return; }
+
+    // Build ancestor set (from sheet up to body)
+    const ancestors = new Set();
+    let el = sheet.parentElement;
+    while (el && el !== document.body) {
+      ancestors.add(el);
+      el = el.parentElement;
+    }
+
+    // Mark siblings at each ancestor level as print-hidden
+    const hiddenEls = [];
+    ancestors.forEach((ancestor) => {
+      Array.from(ancestor.children).forEach((child) => {
+        if (!ancestors.has(child) && child !== sheet && !sheet.contains(child)) {
+          child.dataset.printHidden = 'true';
+          hiddenEls.push(child);
+        }
+      });
+    });
+    // Also hide direct children of body that are not ancestors
+    Array.from(document.body.children).forEach((child) => {
+      if (!ancestors.has(child) && child !== sheet && !sheet.contains(child)) {
+        child.dataset.printHidden = 'true';
+        hiddenEls.push(child);
+      }
+    });
+
+    document.body.classList.remove('print-mode-transcript');
+    document.body.classList.add('print-mode-tabulation');
+
+    const cleanup = () => {
+      document.body.classList.remove('print-mode-tabulation');
+      hiddenEls.forEach((hiddenEl) => delete hiddenEl.dataset.printHidden);
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+
+    // Small delay lets React flush DOM updates before print dialog opens
+    setTimeout(() => window.print(), 60);
+  }, []);
 
   const selectedStudent = useMemo(() => {
     const student = rankedFilteredResults.find(student => student.key === selectedStudentKey) || null;
@@ -1798,241 +1987,277 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
   /* ─────────────────────────────────────────────────────────────
      Render: Student List
      ───────────────────────────────────────────────────────────── */
-  const renderStudentList = () => (
-    <div className="results-tabulation-sheet">
-      {/* Printable Header (Visible during print) */}
-      <div className="print-header" style={{ marginBottom: '14px', borderBottom: '2px solid #000', paddingBottom: '8px' }}>
-        <div>
-          <h1 className="print-institution-name" style={{ margin: 0, fontSize: '18pt', fontWeight: 900, color: '#000' }}>{getSchoolNameByClass(searchClass || '', schoolProfile) || schoolProfile?.schoolName || 'ScholasticBase'}</h1>
-          {(schoolProfile?.location || window.localStorage.getItem('schoolLocation')) && (
-            <p className="print-school-location" style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
-              📍 {schoolProfile?.location || window.localStorage.getItem('schoolLocation')}
-            </p>
-          )}
-          {(schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')) && (
-            <p className="print-eiin-number" style={{ margin: '2px 0 0', fontSize: '10pt', fontWeight: 700, color: '#333' }}>
-              EIIN: {schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')}
-            </p>
-          )}
-          <h2 className="print-title" style={{ margin: '4px 0 0', fontSize: '14pt', fontWeight: 800, color: '#000' }}>Academic Result List & Tabulation Sheet</h2>
-          <p className="print-subtitle" style={{ margin: '2px 0 0', fontSize: '10pt', color: '#333' }}>
-            {searchClass ? `Class: ${searchClass}` : 'All Classes'} {searchGroup ? `· Group: ${searchGroup}` : ''} {searchSubject ? `· Subject: ${searchSubject}` : ''}
-          </p>
-        </div>
-      </div>
+  const renderStudentList = () => {
+    const totalColumnCount = (!readOnly && selectionMode ? 1 : 0) + 9 + visibleSubjectColumns.length;
+    const activeExamTitle = selectedExamSession?.name || selectedExamSession?.title || selectedExamSession?.examName || 'Academic Result List & Tabulation Sheet';
+    const mainSchoolName = schoolProfile?.schoolName || (typeof window !== 'undefined' ? window.localStorage.getItem('schoolName') : '') || 'ScholasticBase';
+    const resolvedBranchObj = getBranchByClass(searchClass || '', schoolProfile);
+    const resolvedBranchTitle = resolvedBranchObj?.name || selectedExamSession?.branch || (searchClass ? getSchoolNameByClass(searchClass, schoolProfile) : null);
+    const schoolLocation = schoolProfile?.location || (typeof window !== 'undefined' ? window.localStorage.getItem('schoolLocation') : '');
+    const schoolEiin = schoolProfile?.eiinNumber || (typeof window !== 'undefined' ? window.localStorage.getItem('schoolEiinNumber') : '');
+    const schoolLogoUrl = schoolProfile?.logoUrl || schoolProfile?.logo || (typeof window !== 'undefined' ? window.localStorage.getItem('schoolLogo') : null);
 
-      <div className="tp-table-container tp-table-responsive" style={{ borderRadius: '14px', border: '1.5px solid #e2e8f0', overflowX: 'auto', WebkitOverflowScrolling: 'touch', boxShadow: '0 4px 20px rgba(15,23,42,0.07)' }}>
-        <table style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          background: '#fff',
-          minWidth: '900px',
-        }}>
-          <thead>
-            <tr style={{ background: 'linear-gradient(135deg, #1a2e4a, #1e3a8a)', borderBottom: 'none' }}>
-              {!readOnly && selectionMode && <th style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.select')}</th>}
-              <th style={{ padding: '15px 18px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.studentName')}</th>
-              <th style={{ padding: '15px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.class')}</th>
-              <th style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.roll')}</th>
-              <th style={{ padding: '15px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.group')}</th>
-              {visibleSubjectColumns.map((subject) => (
-                <th key={subject} style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#fde68a', textTransform: 'uppercase', letterSpacing: '.06em', minWidth: '120px', whiteSpace: 'nowrap' }}>{subject}</th>
-              ))}
-              <th style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.total')}</th>
-              <th style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.avg')}</th>
-              <th style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.gpa')}</th>
-              <th style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#fde68a', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.rank')}</th>
-              <th className="mark-sheet-no-print" style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.action')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {overviewRows.length === 0 ? (
-              <tr>
-                <td colSpan={(!readOnly && selectionMode ? 1 : 0) + 9 + visibleSubjectColumns.length} style={{ padding: '56px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '14px', fontWeight: '600' }}>
-                  {t('results.noResultFound')}
-                </td>
+    return (
+      <div className="results-tabulation-sheet">
+        <div className="tp-table-container tp-table-responsive" style={{ borderRadius: '14px', border: '1.5px solid #e2e8f0', overflowX: 'auto', WebkitOverflowScrolling: 'touch', boxShadow: '0 4px 20px rgba(15,23,42,0.07)' }}>
+          <table style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            background: '#fff',
+          }}>
+            <thead>
+              {/* ── Centered Institution, Branch & Exam Header (Repeated on Page 1, Page 2, Page 3...) ── */}
+              <tr className="print-header-repeat-row">
+                <th colSpan={totalColumnCount} style={{ padding: '12px 14px 14px 14px', border: 'none', background: '#ffffff', fontWeight: 'normal', textAlign: 'center' }}>
+                  <div className="print-header-centered" style={{ textAlign: 'center', width: '100%', marginBottom: '6px', borderBottom: '2px solid #000', paddingBottom: '10px' }}>
+                    {/* School Logo + School Name (Centered at top) */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      {schoolLogoUrl && (
+                        <img src={schoolLogoUrl} alt="Logo" style={{ width: '42px', height: '42px', objectFit: 'contain' }} />
+                      )}
+                      <h1 className="print-institution-name" style={{ margin: 0, fontSize: '20pt', fontWeight: 900, color: '#000', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center' }}>
+                        {mainSchoolName}
+                      </h1>
+                    </div>
+
+                    {/* Branch Name, Location & EIIN (Centered under School Name) */}
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginTop: '4px', fontSize: '11pt', color: '#1e293b', fontWeight: 700, textAlign: 'center' }}>
+                      {resolvedBranchTitle && (
+                        <span className="print-branch-badge" style={{ background: '#f1f5f9', padding: '2px 10px', borderRadius: '4px', border: '1px solid #cbd5e1', color: '#0f172a' }}>
+                          Branch: {resolvedBranchTitle}
+                        </span>
+                      )}
+                      {schoolLocation && <span>📍 {schoolLocation}</span>}
+                      {schoolEiin && <span>EIIN: {schoolEiin}</span>}
+                    </div>
+
+                    {/* Exam Name (Centered) */}
+                    <h2 className="print-title" style={{ margin: '8px 0 2px', fontSize: '15pt', fontWeight: 800, color: '#0f172a', textAlign: 'center' }}>
+                      {activeExamTitle === 'Academic Result List & Tabulation Sheet' ? activeExamTitle : `Tabulation Sheet — ${activeExamTitle}`}
+                    </h2>
+
+                    {/* Subtitle / Filter Details (Centered) */}
+                    <p className="print-subtitle" style={{ margin: '2px 0 0', fontSize: '10.5pt', fontWeight: 600, color: '#334155', textAlign: 'center' }}>
+                      {searchClass ? `Class: ${searchClass}` : 'All Classes'} {searchGroup ? `· Group: ${searchGroup}` : ''} {searchSubject ? `· Subject: ${searchSubject}` : ''}
+                    </p>
+                  </div>
+                </th>
               </tr>
-            ) : (
-              overviewRows.map((row, rowIdx) => (
-                <tr
-                  key={row.key}
-                  onClick={() => !readOnly && selectionMode ? handleToggleStudentSelection(row.selectableSubjects) : setSelectedStudentKey(row.key)}
-                  style={{ borderBottom: '1px solid #f1f5f9', background: rowIdx % 2 === 0 ? '#fff' : '#f8fafc', cursor: 'pointer', transition: 'background-color 0.15s' }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#eff6ff'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = rowIdx % 2 === 0 ? '#fff' : '#f8fafc'}
-                >
-                  {!readOnly && selectionMode && (
-                    <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                      <input
-                        type="checkbox"
-                        checked={isStudentSelected(row.selectableSubjects)}
-                        onChange={(event) => {
-                          event.stopPropagation();
-                          handleToggleStudentSelection(row.selectableSubjects);
-                        }}
-                        onClick={(event) => event.stopPropagation()}
-                        style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#2563eb' }}
-                      />
-                    </td>
-                  )}
-                  <td className="tp-cell-nowrap" style={{ padding: '14px 18px', color: '#1a2e4a', fontSize: '14px', fontWeight: '700' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="tp-avatar-text">{row.name.charAt(0)}</span>
-                      {row.name}
-                    </span>
-                  </td>
-                  <td className="tp-cell-nowrap" style={{ padding: '14px 16px', color: '#1a2e4a', fontSize: '13px', fontWeight: '600' }}>
-                    <span className="tp-badge-light">{row.class}</span>
-                  </td>
-                  <td className="tp-cell-nowrap tp-cell-center" style={{ padding: '14px 16px', color: '#1a2e4a', fontSize: '14px', fontWeight: '700' }}>{row.roll}</td>
-                  <td className="tp-cell-nowrap" style={{ padding: '14px 16px', color: '#475569', fontSize: '13px', fontWeight: '600' }}>{row.group}</td>
-                  {visibleSubjectColumns.map((subjectName) => {
-                    const subject = row.subjectMap[subjectName];
-                    if (!subject) {
-                      return (
-                        <td key={subjectName} style={{ padding: '14px 16px', textAlign: 'center' }}>
-                          <span style={{ color: '#d97706', fontSize: '11px', fontWeight: '700', background: '#fef3c7', padding: '3px 8px', borderRadius: '6px', border: '1px solid #fcd34d' }}>Pending</span>
-                        </td>
-                      );
-                    }
 
-                    const rule = selectedExamSession?.subjectRules?.[subjectName] || { totalMarks: 100, passMarks: 33 };
-                    const resolved = resolveRuleTotals(rule);
-                    const hasCqMcqData = subject.cqMarks != null && Number.isFinite(Number(subject.cqMarks));
-                    const hasMcq = resolved.hasMcq && subject.mcqMarks != null;
-                    const cqFail = subject.componentStatus?.cqStatus === 'Fail' || (hasCqMcqData && Number(subject.cqMarks) < Number(rule.cqPass));
-                    const mcqFail = hasMcq && (subject.componentStatus?.mcqStatus === 'Fail' || Number(subject.mcqMarks) < Number(rule.mcqPass));
-
-                    return (
-                      <td key={subjectName} style={{ padding: '12px 14px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
-                          <span style={{ fontSize: '15px', fontWeight: '800', color: (cqFail || mcqFail) ? '#b91c1c' : '#1a2e4a' }}>
-                            {subject.marks}
-                          </span>
-                          {hasCqMcqData && (
-                            <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '600', lineHeight: 1.2 }}>
-                              <span style={{ color: cqFail ? '#b91c1c' : '#475569', fontWeight: cqFail ? 700 : 500 }}>
-                                CQ:{subject.cqMarks}
-                              </span>
-                              {hasMcq && (
-                                <span style={{ color: mcqFail ? '#b91c1c' : '#475569', marginLeft: 4, fontWeight: mcqFail ? 700 : 500 }}>
-                                  MCQ:{subject.mcqMarks}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {(cqFail || mcqFail) && (
-                            <span style={{ fontSize: '9px', background: '#fee2e2', color: '#b91c1c', padding: '1px 5px', borderRadius: '4px', fontWeight: '800' }}>
-                              {cqFail && mcqFail ? 'CQ+MCQ Fail' : cqFail ? 'CQ Fail' : 'MCQ Fail'}
-                            </span>
-                          )}
-                          <GradeBadge grade={subject.grade} />
-                        </div>
-                      </td>
-                    );
-                  })}
-                  <td className="tp-cell-nowrap tp-cell-center" style={{ padding: '14px 16px' }}>
-                    {row.isComplete ? (
-                      <span style={{ fontSize: '15px', fontWeight: '800', color: '#1a2e4a' }}>
-                        {calculateResultSummary(row.subjects, true).totalMarks}
-                      </span>
-                    ) : (
-                      <span className="tp-badge-pending" style={{ background: '#fef3c7', color: '#d97706', border: '1px solid #fcd34d' }}>{t('results.pending')}</span>
-                    )}
-                  </td>
-                  <td className="tp-cell-nowrap tp-cell-center" style={{ padding: '14px 16px' }}>
-                    {row.isComplete ? (
-                      <span style={{ fontSize: '15px', fontWeight: '800', color: '#2563eb' }}>
-                        {row.averageMarks.toFixed(1)}
-                      </span>
-                    ) : (
-                      <span style={{ color: '#94a3b8', fontWeight: '700' }}>—</span>
-                    )}
-                  </td>
-                  <td className="tp-cell-nowrap tp-cell-center" style={{ padding: '14px 16px' }}>
-                    {row.isComplete ? (
-                      row.status === 'Fail' ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                          <span style={{ fontSize: '14px', fontWeight: '800', color: '#b91c1c' }}>0.00</span>
-                          <span className="tp-badge-pending" style={{ background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5', padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '800', textTransform: 'uppercase' }}>{t('results.fail')}</span>
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: '14px', fontWeight: '800', color: '#15803d' }}>{row.averageGpa.toFixed(2)}</span>
-                      )
-                    ) : (
-                      <span className="tp-badge-pending" style={{ background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5' }}>{t('results.fail')}</span>
-                    )}
-                  </td>
-                  <td className="tp-cell-nowrap tp-cell-center" style={{ padding: '14px 16px' }}>
-                    {row.position ? (
-                      <span className="tp-badge-rank">#{row.position}</span>
-                    ) : (
-                      <span style={{
-                        display: 'inline-block',
-                        padding: '4px 10px',
-                        borderRadius: '12px',
-                        background: '#f1f5f9',
-                        color: '#64748b',
-                        fontSize: '11px',
-                        fontWeight: '700',
-                        border: '1px solid #cbd5e1'
-                      }}>
-                        {t('common.notRanked')}
-                      </span>
-                    )}
-                  </td>
-                  <td className="mark-sheet-no-print tp-cell-center" style={{ padding: '14px 16px' }}>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setSelectedStudentKey(row.key);
-                      }}
-                      className="tp-btn-primary"
-                    >
-                      View →
-                    </button>
+              <tr style={{ background: 'linear-gradient(135deg, #1a2e4a, #1e3a8a)', borderBottom: 'none' }}>
+                {!readOnly && selectionMode && <th style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.select')}</th>}
+                <th style={{ padding: '15px 18px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.studentName')}</th>
+                <th style={{ padding: '15px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.class')}</th>
+                <th style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.roll')}</th>
+                <th style={{ padding: '15px 16px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.group')}</th>
+                {visibleSubjectColumns.map((subject) => (
+                  <th key={subject} style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#fde68a', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{subject}</th>
+                ))}
+                <th style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.total')}</th>
+                <th style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.avg')}</th>
+                <th style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.gpa')}</th>
+                <th style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#fde68a', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.rank')}</th>
+                <th className="mark-sheet-no-print" style={{ padding: '15px 16px', textAlign: 'center', fontSize: '11px', fontWeight: '700', color: '#93c5fd', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{t('results.action')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {overviewRows.length === 0 ? (
+                <tr>
+                  <td colSpan={(!readOnly && selectionMode ? 1 : 0) + 9 + visibleSubjectColumns.length} style={{ padding: '56px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '14px', fontWeight: '600' }}>
+                    {t('results.noResultFound')}
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-      <div className="results-list-actions mark-sheet-no-print" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px', padding: '14px 18px', background: '#f8fafc', borderTop: '1.5px solid #e2e8f0', flexWrap: 'wrap', borderRadius: '0 0 14px 14px', marginTop: '-2px' }}>
-        {selectionMode && <span style={{ marginRight: 'auto', color: '#1a2e4a', fontSize: '13px', fontWeight: '700' }}>{selectedResultKeys.length} selected</span>}
-        <button
-          type="button"
-          onClick={() => window.print()}
-          style={{ padding: '9px 18px', borderRadius: '9px', border: 'none', background: '#0284c7', color: '#fff', cursor: 'pointer', fontWeight: '700', fontSize: '13px', boxShadow: '0 2px 8px rgba(2,132,199,0.25)' }}
-        >
-          🖨️ Print Result List
-        </button>
-        {!readOnly && selectionMode && (
-          <button
-            type="button"
-            onClick={handleDeleteSelectedResults}
-            disabled={selectedResultKeys.length === 0}
-            style={{ padding: '9px 18px', borderRadius: '9px', border: 'none', background: selectedResultKeys.length === 0 ? '#fecaca' : '#dc2626', color: '#fff', cursor: selectedResultKeys.length === 0 ? 'not-allowed' : 'pointer', fontWeight: '700', fontSize: '13px' }}
-          >
-            {t('results.deleteSelected')}
-          </button>
-        )}
-        {!readOnly && (
+              ) : (
+                overviewRows.map((row, rowIdx) => (
+                  <tr
+                    key={row.key}
+                    onClick={() => !readOnly && selectionMode ? handleToggleStudentSelection(row.selectableSubjects) : setSelectedStudentKey(row.key)}
+                    style={{ borderBottom: '1px solid #f1f5f9', background: rowIdx % 2 === 0 ? '#fff' : '#f8fafc', cursor: 'pointer', transition: 'background-color 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#eff6ff'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = rowIdx % 2 === 0 ? '#fff' : '#f8fafc'}
+                  >
+                    {!readOnly && selectionMode && (
+                      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={isStudentSelected(row.selectableSubjects)}
+                          onChange={(event) => {
+                            event.stopPropagation();
+                            handleToggleStudentSelection(row.selectableSubjects);
+                          }}
+                          onClick={(event) => event.stopPropagation()}
+                          style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#2563eb' }}
+                        />
+                      </td>
+                    )}
+                    <td className="tp-cell-nowrap" style={{ padding: '14px 18px', color: '#1a2e4a', fontSize: '14px', fontWeight: '700' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="tp-avatar-text">{row.name.charAt(0)}</span>
+                        {row.name}
+                      </span>
+                    </td>
+                    <td className="tp-cell-nowrap" style={{ padding: '14px 16px', color: '#1a2e4a', fontSize: '13px', fontWeight: '600' }}>
+                      <span className="tp-badge-light">{row.class}</span>
+                    </td>
+                    <td className="tp-cell-nowrap tp-cell-center" style={{ padding: '14px 16px', color: '#1a2e4a', fontSize: '14px', fontWeight: '700' }}>{row.roll}</td>
+                    <td className="tp-cell-nowrap" style={{ padding: '14px 16px', color: '#475569', fontSize: '13px', fontWeight: '600' }}>{row.group}</td>
+                    {visibleSubjectColumns.map((subjectName) => {
+                      const subject = row.subjectMap[subjectName];
+                      if (!subject) {
+                        return (
+                          <td key={subjectName} style={{ padding: '14px 16px', textAlign: 'center' }}>
+                            <span style={{ color: '#d97706', fontSize: '11px', fontWeight: '700', background: '#fef3c7', padding: '3px 8px', borderRadius: '6px', border: '1px solid #fcd34d' }}>Pending</span>
+                          </td>
+                        );
+                      }
+
+                      const rule = selectedExamSession?.subjectRules?.[subjectName] || { totalMarks: 100, passMarks: 33 };
+                      const resolved = resolveRuleTotals(rule);
+                      const hasCqMcqData = subject.cqMarks != null && Number.isFinite(Number(subject.cqMarks));
+                      const hasMcq = resolved.hasMcq && subject.mcqMarks != null;
+                      const cqFail = subject.componentStatus?.cqStatus === 'Fail' || (hasCqMcqData && Number(subject.cqMarks) < Number(rule.cqPass));
+                      const mcqFail = hasMcq && (subject.componentStatus?.mcqStatus === 'Fail' || Number(subject.mcqMarks) < Number(rule.mcqPass));
+
+                      return (
+                        <td key={subjectName} style={{ padding: '12px 14px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                            <span style={{ fontSize: '15px', fontWeight: '800', color: (cqFail || mcqFail) ? '#b91c1c' : '#1a2e4a' }}>
+                              {subject.marks}
+                            </span>
+                            {hasCqMcqData && (
+                              <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '600', lineHeight: 1.2 }}>
+                                <span style={{ color: cqFail ? '#b91c1c' : '#475569', fontWeight: cqFail ? 700 : 500 }}>
+                                  CQ:{subject.cqMarks}
+                                </span>
+                                {hasMcq && (
+                                  <span style={{ color: mcqFail ? '#b91c1c' : '#475569', marginLeft: 4, fontWeight: mcqFail ? 700 : 500 }}>
+                                    MCQ:{subject.mcqMarks}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {(cqFail || mcqFail) && (
+                              <span style={{ fontSize: '9px', background: '#fee2e2', color: '#b91c1c', padding: '1px 5px', borderRadius: '4px', fontWeight: '800' }}>
+                                {cqFail && mcqFail ? 'CQ+MCQ Fail' : cqFail ? 'CQ Fail' : 'MCQ Fail'}
+                              </span>
+                            )}
+                            <GradeBadge grade={subject.grade} />
+                          </div>
+                        </td>
+                      );
+                    })}
+                    <td className="tp-cell-nowrap tp-cell-center" style={{ padding: '14px 16px' }}>
+                      {row.isComplete ? (
+                        <span style={{ fontSize: '15px', fontWeight: '800', color: '#1a2e4a' }}>
+                          {calculateResultSummary(row.subjects, true).totalMarks}
+                        </span>
+                      ) : (
+                        <span className="tp-badge-pending" style={{ background: '#fef3c7', color: '#d97706', border: '1px solid #fcd34d' }}>{t('results.pending')}</span>
+                      )}
+                    </td>
+                    <td className="tp-cell-nowrap tp-cell-center" style={{ padding: '14px 16px' }}>
+                      {row.isComplete ? (
+                        <span style={{ fontSize: '15px', fontWeight: '800', color: '#2563eb' }}>
+                          {row.averageMarks.toFixed(1)}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#94a3b8', fontWeight: '700' }}>—</span>
+                      )}
+                    </td>
+                    <td className="tp-cell-nowrap tp-cell-center" style={{ padding: '14px 16px' }}>
+                      {row.isComplete ? (
+                        row.status === 'Fail' ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ fontSize: '14px', fontWeight: '800', color: '#b91c1c' }}>0.00</span>
+                            <span className="tp-badge-pending" style={{ background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5', padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '800', textTransform: 'uppercase' }}>{t('results.fail')}</span>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: '14px', fontWeight: '800', color: '#15803d' }}>{row.averageGpa.toFixed(2)}</span>
+                        )
+                      ) : (
+                        <span className="tp-badge-pending" style={{ background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5' }}>{t('results.fail')}</span>
+                      )}
+                    </td>
+                    <td className="tp-cell-nowrap tp-cell-center" style={{ padding: '14px 16px' }}>
+                      {row.position ? (
+                        <span className="tp-badge-rank">#{row.position}</span>
+                      ) : (
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          background: '#f1f5f9',
+                          color: '#64748b',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          border: '1px solid #cbd5e1'
+                        }}>
+                          {t('common.notRanked')}
+                        </span>
+                      )}
+                    </td>
+                    <td className="mark-sheet-no-print tp-cell-center" style={{ padding: '14px 16px' }}>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedStudentKey(row.key);
+                        }}
+                        className="tp-btn-primary"
+                      >
+                        View →
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="results-list-actions mark-sheet-no-print" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px', padding: '14px 18px', background: '#f8fafc', borderTop: '1.5px solid #e2e8f0', flexWrap: 'wrap', borderRadius: '0 0 14px 14px', marginTop: '-2px' }}>
+          {selectionMode && <span style={{ marginRight: 'auto', color: '#1a2e4a', fontSize: '13px', fontWeight: '700' }}>{selectedResultKeys.length} selected</span>}
           <button
             type="button"
             onClick={() => {
-              setSelectionMode(prev => !prev);
-              setSelectedResultKeys([]);
+              document.body.classList.remove('print-mode-transcript');
+              document.body.classList.add('print-mode-tabulation');
+              const cleanup = () => {
+                document.body.classList.remove('print-mode-tabulation');
+                window.removeEventListener('afterprint', cleanup);
+              };
+              window.addEventListener('afterprint', cleanup);
+              window.print();
             }}
-            style={{ padding: '9px 18px', borderRadius: '9px', border: 'none', background: selectionMode ? '#f1f5f9' : 'linear-gradient(135deg,#1d4ed8,#2563eb)', color: selectionMode ? '#334155' : '#fff', cursor: 'pointer', fontWeight: '700', fontSize: '13px', boxShadow: selectionMode ? 'none' : '0 2px 8px rgba(37,99,235,0.25)' }}
+            style={{ padding: '9px 18px', borderRadius: '9px', border: 'none', background: '#0284c7', color: '#fff', cursor: 'pointer', fontWeight: '700', fontSize: '13px', boxShadow: '0 2px 8px rgba(2,132,199,0.25)' }}
           >
-            {selectionMode ? 'Cancel' : '☑ Select Results'}
+            🖨️ Print Result List
           </button>
-        )}
+          {!readOnly && selectionMode && (
+            <button
+              type="button"
+              onClick={handleDeleteSelectedResults}
+              disabled={selectedResultKeys.length === 0}
+              style={{ padding: '9px 18px', borderRadius: '9px', border: 'none', background: selectedResultKeys.length === 0 ? '#fecaca' : '#dc2626', color: '#fff', cursor: selectedResultKeys.length === 0 ? 'not-allowed' : 'pointer', fontWeight: '700', fontSize: '13px' }}
+            >
+              {t('results.deleteSelected')}
+            </button>
+          )}
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectionMode(prev => !prev);
+                setSelectedResultKeys([]);
+              }}
+              style={{ padding: '9px 18px', borderRadius: '9px', border: 'none', background: selectionMode ? '#f1f5f9' : 'linear-gradient(135deg,#1d4ed8,#2563eb)', color: selectionMode ? '#334155' : '#fff', cursor: 'pointer', fontWeight: '700', fontSize: '13px', boxShadow: selectionMode ? 'none' : '0 2px 8px rgba(37,99,235,0.25)' }}
+            >
+              {selectionMode ? 'Cancel' : '☑ Select Results'}
+            </button>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   /* ─────────────────────────────────────────────────────────────
      Render: Student Result Details

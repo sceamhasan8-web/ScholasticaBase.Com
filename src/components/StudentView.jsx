@@ -16,6 +16,7 @@ import ScholasticBaseLogo from './ScholasticBaseLogo.jsx';
 import SafeImage from './SafeImage.jsx';
 import { getNotices, canUserAccessNotice, addNotice, subscribeToNoticeUpdates, normalizeRoles } from '../utils/noticeStorage.js';
 import SectionErrorBoundary from './SectionErrorBoundary.jsx';
+import { TableSkeleton, CardSkeleton } from './SkeletonLoader.jsx';
 
 /* ─────────────────────────────────────────────────────────────
    React Error Boundary Component to prevent Blank/Black Screens
@@ -644,9 +645,7 @@ function DetailContent({
     return (
       <div className="sv-result-container">
         {loading ? (
-          <div style={{ background: '#ffffff', borderRadius: '18px', padding: '48px 24px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-            <p style={{ color: '#64748b', fontSize: 15, fontWeight: 600, margin: 0 }}>⏳ Loading academic exam results…</p>
-          </div>
+          <TableSkeleton rows={6} columns={5} />
         ) : error ? (
           <div style={{ background: '#fef2f2', borderRadius: '18px', padding: '24px', textAlign: 'center', border: '1px solid #fecaca', color: '#dc2626' }}>
             <p style={{ margin: 0, fontWeight: 700 }}>{error}</p>
@@ -1044,7 +1043,7 @@ function StudentViewContent() {
                 className={`tp-sidebar-nav-item${activeSidebarId === 'home' ? ' active' : ''}`}
                 onClick={() => handleSidebarClick('home')}
               >
-                <SBHomeIcon /> Home
+                <SBHomeIcon /> <span className="tp-sidebar-label-text">Home</span>
               </button>
               {menuItems.map((item) => (
                 <button
@@ -1052,7 +1051,7 @@ function StudentViewContent() {
                   className={`tp-sidebar-nav-item${activeSidebarId === item.id ? ' active' : ''}`}
                   onClick={() => handleSidebarClick(item.id)}
                 >
-                  <item.SBIcon /> {item.title}
+                  <item.SBIcon /> <span className="tp-sidebar-label-text">{item.title}</span>
                 </button>
               ))}
               {tabItems.filter((t) => t.id !== 'home').map((tab) => (
@@ -1061,7 +1060,7 @@ function StudentViewContent() {
                   className={`tp-sidebar-nav-item${activeSidebarId === tab.id ? ' active' : ''}`}
                   onClick={() => handleSidebarClick(tab.id)}
                 >
-                  <tab.SBIcon /> {tab.label}
+                  <tab.SBIcon /> <span className="tp-sidebar-label-text">{tab.label}</span>
                 </button>
               ))}
             </div>
@@ -1100,7 +1099,7 @@ function StudentViewContent() {
             className={`tp-sidebar-nav-item${activeSidebarId === 'home' ? ' active' : ''}`}
             onClick={() => handleSidebarClick('home')}
           >
-            <SBHomeIcon /> Home
+            <SBHomeIcon /> <span className="tp-sidebar-label-text">Home</span>
           </button>
 
           <p className="sv-sidebar-section-label">ACADEMICS</p>
@@ -1110,7 +1109,7 @@ function StudentViewContent() {
               className={`tp-sidebar-nav-item${activeSidebarId === item.id ? ' active' : ''}`}
               onClick={() => handleSidebarClick(item.id)}
             >
-              <item.SBIcon /> {item.title}
+              <item.SBIcon /> <span className="tp-sidebar-label-text">{item.title}</span>
             </button>
           ))}
 
@@ -1121,7 +1120,7 @@ function StudentViewContent() {
               className={`tp-sidebar-nav-item${activeSidebarId === tab.id ? ' active' : ''}`}
               onClick={() => handleSidebarClick(tab.id)}
             >
-              <tab.SBIcon /> {tab.label}
+              <tab.SBIcon /> <span className="tp-sidebar-label-text">{tab.label}</span>
             </button>
           ))}
         </nav>
@@ -1138,7 +1137,7 @@ function StudentViewContent() {
             </p>
           </div>
           <button className="tp-sidebar-signout" onClick={signOut}>
-            <LogoutIcon /> Sign Out
+            <LogoutIcon /> <span>Sign Out</span>
           </button>
         </div>
       </aside>
@@ -1174,211 +1173,213 @@ function StudentViewContent() {
           </div>
         </div>
 
-        {/* ── HOME: Section Detail View ── */}
-        {isHome && activeSection !== null && (
-          <div className="sv-content-area">
-            <div className="tp-section-header">
-              <button
-                className="tp-back-btn"
-                onClick={() => setActiveSection(null)}
-                title="Back to Overview"
-                aria-label="Back to Overview"
-              >
-                <ChevronLeft />
-              </button>
-              <div className="tp-section-header-info">
-                <div className="tp-breadcrumbs" aria-label="Breadcrumb">
-                  <button type="button" className="tp-crumb-link" onClick={() => setActiveSection(null)}>Home</button>
-                  <span className="tp-crumb-separator">/</span>
-                  <span className="tp-crumb-current">{sectionMeta?.title || 'Student Info'}</span>
-                </div>
-                <h2 className="tp-section-title">{sectionMeta?.title}</h2>
-              </div>
-            </div>
-            <SectionErrorBoundary sectionName={sectionMeta?.title || "Detail View"}>
-              <DetailContent
-                section={activeSection}
-                user={activeUser}
-                results={results}
-                loading={loading}
-                error={error}
-                liveTeachers={liveTeachers}
-                liveStudents={liveStudents}
-                studentProfile={studentProfile}
-              />
-            </SectionErrorBoundary>
-          </div>
-        )}
-
-        {/* ── HOME: Menu Overview ── */}
-        {isHome && activeSection === null && (
-          <>
-            <div className="tp-hero">
-              <div className="tp-greeting">
-                <h1>{getGreeting()}</h1>
-                <p>“অগাধ ধন সম্পদের চেয়ে একজন সুশিক্ষিত সন্তানের মুল্য অনেক বেশি”</p>
-              </div>
-              <div className="tp-school-brand">
-                <SafeImage
-                  src={profile.logo}
-                  alt="School Logo"
-                  className="tp-crest"
-                  style={{ width: 68, height: 68, borderRadius: 12, flexShrink: 0 }}
-                  fallbackVariant="school"
-                  fallbackText={profile.schoolName || 'ScholasticBase'}
-                />
-                <div style={{ flex: '1 1 0%', minWidth: 0 }}>
-                  <span className="tp-school-name">{profile.schoolName || 'ScholasticBase'}</span>
-                  {(profile.location || window.localStorage.getItem('schoolLocation')) && (
-                    <span className="tp-school-location" style={{ display: 'block', fontSize: 12, color: '#64748b', fontWeight: 500, marginTop: 2 }}>
-                      📍 {profile.location || window.localStorage.getItem('schoolLocation')}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="tp-cards-grid">
-              {menuItems.map((item) => (
+        <div className="sv-main-container">
+          {/* ── HOME: Section Detail View ── */}
+          {isHome && activeSection !== null && (
+            <div className="sv-content-area">
+              <div className="tp-section-header">
                 <button
-                  key={item.id}
-                  className="tp-menu-card"
-                  onClick={() => handleCardClick(item.id)}
+                  className="tp-back-btn"
+                  onClick={() => setActiveSection(null)}
+                  title="Back to Overview"
+                  aria-label="Back to Overview"
                 >
-                  <div className="tp-card-icon" style={{ background: item.color }}>
-                    <item.Icon />
-                  </div>
-                  <div className="tp-card-text">
-                    <p className="tp-card-title">{item.title}</p>
-                  </div>
-                  <div className="tp-card-chevron"><ChevronRight /></div>
+                  <ChevronLeft />
                 </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* ── Notice Board Tab ── */}
-        {activeTab === 'notice' && (
-          <div className="sv-content-area" style={{ padding: '24px clamp(16px, 3vw, 32px)' }}>
-            <div className="tp-notice-toolbar">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <h2 className="sv-page-title" style={{ margin: 0, fontSize: 22 }}>📢 Notice Board</h2>
-                <span className="tp-roster-badge" style={{ background: '#dbeafe', color: '#1e40af', borderColor: '#bfdbfe', fontSize: 13, padding: '4px 12px', borderRadius: 20, fontWeight: 700 }}>
-                  {notices.length} Notice{notices.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-              <button className="tp-add-student-btn" style={{ background: '#2563eb', margin: 0 }} onClick={() => setShowAddNotice(true)}>+ Add Notice</button>
-            </div>
-
-            <div className="sv-notice-grid">
-              {notices.map((n, i) => (
-                <div key={i} className="sv-notice-card">
-                  <div className="tp-notice-header">
-                    <h3 className="sv-notice-title">{n.title}</h3>
-                    <span className="sv-notice-date">{n.date}</span>
+                <div className="tp-section-header-info">
+                  <div className="tp-breadcrumbs" aria-label="Breadcrumb">
+                    <button type="button" className="tp-crumb-link" onClick={() => setActiveSection(null)}>Home</button>
+                    <span className="tp-crumb-separator">/</span>
+                    <span className="tp-crumb-current">{sectionMeta?.title || 'Student Info'}</span>
                   </div>
-                  <p className="sv-notice-desc">{n.desc}</p>
-                  {n.fileData && (
-                    <div style={{ marginTop: 'auto', paddingTop: 10, borderTop: '1px dashed #e2e8f0' }}>
-                      <a href={n.fileData} download={n.fileName || `notice-${i}`} style={{ color: '#2563eb', fontWeight: 700, fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        📎 Download Attachment
-                      </a>
+                  <h2 className="tp-section-title">{sectionMeta?.title}</h2>
+                </div>
+              </div>
+              <SectionErrorBoundary sectionName={sectionMeta?.title || "Detail View"}>
+                <DetailContent
+                  section={activeSection}
+                  user={activeUser}
+                  results={results}
+                  loading={loading}
+                  error={error}
+                  liveTeachers={liveTeachers}
+                  liveStudents={liveStudents}
+                  studentProfile={studentProfile}
+                />
+              </SectionErrorBoundary>
+            </div>
+          )}
+
+          {/* ── HOME: Menu Overview ── */}
+          {isHome && activeSection === null && (
+            <>
+              <div className="tp-hero">
+                <div className="tp-greeting">
+                  <h1>{getGreeting()}, {displayUser.name || 'Student'}!</h1>
+                  <p>“অগাধ ধন সম্পদের চেয়ে একজন সুশিক্ষিত সন্তানের মুল্য অনেক বেশি”</p>
+                </div>
+                <div className="tp-school-brand">
+                  <SafeImage
+                    src={profile.logo}
+                    alt="School Logo"
+                    className="tp-crest"
+                    style={{ width: 56, height: 56, borderRadius: 12, flexShrink: 0 }}
+                    fallbackVariant="school"
+                    fallbackText={profile.schoolName || 'ScholasticBase'}
+                  />
+                  <div style={{ flex: '1 1 0%', minWidth: 0 }}>
+                    <span className="tp-school-name">{profile.schoolName || 'ScholasticBase'}</span>
+                    {(profile.location || window.localStorage.getItem('schoolLocation')) && (
+                      <span className="tp-school-location" style={{ display: 'block', fontSize: 12, color: '#475569', fontWeight: 500, marginTop: 2 }}>
+                        📍 {profile.location || window.localStorage.getItem('schoolLocation')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="tp-cards-grid">
+                {menuItems.map((item) => (
+                  <button
+                    key={item.id}
+                    className="tp-menu-card"
+                    onClick={() => handleCardClick(item.id)}
+                  >
+                    <div className="tp-card-icon" style={{ background: item.color }}>
+                      <item.Icon />
+                    </div>
+                    <div className="tp-card-text">
+                      <p className="tp-card-title">{item.title}</p>
+                    </div>
+                    <div className="tp-card-chevron"><ChevronRight /></div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* ── Notice Board Tab ── */}
+          {activeTab === 'notice' && (
+            <div className="sv-content-area" style={{ padding: '24px clamp(16px, 3vw, 32px)' }}>
+              <div className="tp-notice-toolbar">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <h2 className="sv-page-title" style={{ margin: 0, fontSize: 22 }}>📢 Notice Board</h2>
+                  <span className="tp-roster-badge" style={{ background: '#dbeafe', color: '#1e40af', borderColor: '#bfdbfe', fontSize: 13, padding: '4px 12px', borderRadius: 20, fontWeight: 700 }}>
+                    {notices.length} Notice{notices.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <button className="tp-add-student-btn" style={{ background: '#2563eb', margin: 0 }} onClick={() => setShowAddNotice(true)}>+ Add Notice</button>
+              </div>
+
+              <div className="sv-notice-grid">
+                {notices.map((n, i) => (
+                  <div key={i} className="sv-notice-card" id={`notice-${n.id || i}`}>
+                    <div className="tp-notice-header">
+                      <h3 className="sv-notice-title">{n.title}</h3>
+                      <span className="sv-notice-date">{n.date}</span>
+                    </div>
+                    <p className="sv-notice-desc">{n.desc}</p>
+                    {n.fileData && (
+                      <div style={{ marginTop: 'auto', paddingTop: 10, borderTop: '1px dashed #e2e8f0' }}>
+                        <a href={n.fileData} download={n.fileName || `notice-${i}`} style={{ color: '#2563eb', fontWeight: 700, fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          📎 Download Attachment
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {showAddNotice && (
+                <AddNoticeModal
+                  onClose={() => setShowAddNotice(false)}
+                  onAdd={(notice) => { setNotices(prev => [notice, ...prev]); setShowAddNotice(false); }}
+                />
+              )}
+            </div>
+          )}
+
+          {/* ── Event Calendar Tab ── */}
+          {activeTab === 'calendar' && (
+            <div className="sv-content-area">
+              <h2 className="sv-page-title">📅 Event Calendar</h2>
+              <div className="sv-calendar-grid">
+                {calendarEvents.map((ev, i) => (
+                  <div key={i} className="sv-calendar-card">
+                    <div className="sv-calendar-badge">
+                      <span>{ev.date.split(' ')[0]}</span>
+                      <span style={{ fontSize: 20, fontWeight: 800 }}>{ev.date.split(' ')[1]}</span>
+                    </div>
+                    <div>
+                      <h3 className="sv-calendar-title">{ev.title}</h3>
+                      <p className="sv-calendar-desc">{ev.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Messages Tab ── */}
+          {activeTab === 'messages' && (
+            <div className="sv-content-area">
+              <h2 className="sv-page-title">💬 Messages & Announcements</h2>
+              <div style={{ textAlign: 'center', padding: '48px 24px', background: '#f8fafc', borderRadius: '12px', color: '#94a3b8' }}>
+                📭 No new messages or direct notifications at this time.
+              </div>
+            </div>
+          )}
+
+          {/* ── Profile Tab ── */}
+          {activeTab === 'profile' && (
+            <div className="sv-content-area">
+              <h2 className="sv-page-title">👤 My Account Profile</h2>
+              <div className="sv-profile-card">
+                <SafeImage
+                  src={displayUser?.profilePic}
+                  alt={displayUser.name || 'User'}
+                  className="sv-profile-avatar-img"
+                  style={{ width: 80, height: 80, borderRadius: '50%', flexShrink: 0 }}
+                  fallbackVariant="avatar"
+                  fallbackText={displayUser.name || displayUser.userId || 'Student'}
+                />
+                <h3 className="sv-profile-name">{displayUser.name || 'Student'}</h3>
+                <p className="sv-profile-role">{displayUser.role || 'student'} Portal</p>
+                <div className="sv-profile-info">
+                  <div className="sv-info-row">
+                    <span className="sv-info-label">User ID</span>
+                    <span className="sv-info-value">{displayUser.userId || displayUser.id || 'N/A'}</span>
+                  </div>
+                  {displayUser.className && (
+                    <div className="sv-info-row">
+                      <span className="sv-info-label">Class / Grade</span>
+                      <span className="sv-info-value">{displayUser.className}</span>
                     </div>
                   )}
+                  {displayUser.roll && (
+                    <div className="sv-info-row">
+                      <span className="sv-info-label">Roll Number</span>
+                      <span className="sv-info-value">#{displayUser.roll}</span>
+                    </div>
+                  )}
+                  {displayUser.birthday && (
+                    <div className="sv-info-row">
+                      <span className="sv-info-label">Date of Birth</span>
+                      <span className="sv-info-value">{displayUser.birthday}</span>
+                    </div>
+                  )}
+                  {typeof displayUser.email === 'string' && displayUser.email.trim() && displayUser.email.includes('@') && !displayUser.email.toLowerCase().includes('@progga.edu') && !displayUser.email.toLowerCase().includes('@scholasticbase.edu') && !displayUser.email.toLowerCase().includes('@greenfield.edu') ? (
+                    <div className="sv-info-row" style={{ borderBottom: 'none' }}>
+                      <span className="sv-info-label">Linked Account Email</span>
+                      <span className="sv-info-value">{displayUser.email.trim()}</span>
+                    </div>
+                  ) : null}
                 </div>
-              ))}
-            </div>
-
-            {showAddNotice && (
-              <AddNoticeModal
-                onClose={() => setShowAddNotice(false)}
-                onAdd={(notice) => { setNotices(prev => [notice, ...prev]); setShowAddNotice(false); }}
-              />
-            )}
-          </div>
-        )}
-
-        {/* ── Event Calendar Tab ── */}
-        {activeTab === 'calendar' && (
-          <div className="sv-content-area">
-            <h2 className="sv-page-title">📅 Event Calendar</h2>
-            <div className="sv-calendar-grid">
-              {calendarEvents.map((ev, i) => (
-                <div key={i} className="sv-calendar-card">
-                  <div className="sv-calendar-badge">
-                    <span>{ev.date.split(' ')[0]}</span>
-                    <span style={{ fontSize: 20, fontWeight: 800 }}>{ev.date.split(' ')[1]}</span>
-                  </div>
-                  <div>
-                    <h3 className="sv-calendar-title">{ev.title}</h3>
-                    <p className="sv-calendar-desc">{ev.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Messages Tab ── */}
-        {activeTab === 'messages' && (
-          <div className="sv-content-area">
-            <h2 className="sv-page-title">💬 Messages & Announcements</h2>
-            <div style={{ textAlign: 'center', padding: '48px 24px', background: '#f8fafc', borderRadius: '12px', color: '#94a3b8' }}>
-              📭 No new messages or direct notifications at this time.
-            </div>
-          </div>
-        )}
-
-        {/* ── Profile Tab ── */}
-        {activeTab === 'profile' && (
-          <div className="sv-content-area">
-            <h2 className="sv-page-title">👤 My Account Profile</h2>
-            <div className="sv-profile-card">
-              <SafeImage
-                src={displayUser?.profilePic}
-                alt={displayUser.name || 'User'}
-                className="sv-profile-avatar-img"
-                style={{ width: 80, height: 80, borderRadius: '50%', flexShrink: 0 }}
-                fallbackVariant="avatar"
-                fallbackText={displayUser.name || displayUser.userId || 'Student'}
-              />
-              <h3 className="sv-profile-name">{displayUser.name || 'Student'}</h3>
-              <p className="sv-profile-role">{displayUser.role || 'student'} Portal</p>
-              <div className="sv-profile-info">
-                <div className="sv-info-row">
-                  <span className="sv-info-label">User ID</span>
-                  <span className="sv-info-value">{displayUser.userId || displayUser.id || 'N/A'}</span>
-                </div>
-                {displayUser.className && (
-                  <div className="sv-info-row">
-                    <span className="sv-info-label">Class / Grade</span>
-                    <span className="sv-info-value">{displayUser.className}</span>
-                  </div>
-                )}
-                {displayUser.roll && (
-                  <div className="sv-info-row">
-                    <span className="sv-info-label">Roll Number</span>
-                    <span className="sv-info-value">#{displayUser.roll}</span>
-                  </div>
-                )}
-                {displayUser.birthday && (
-                  <div className="sv-info-row">
-                    <span className="sv-info-label">Date of Birth</span>
-                    <span className="sv-info-value">{displayUser.birthday}</span>
-                  </div>
-                )}
-                {typeof displayUser.email === 'string' && displayUser.email.trim() && displayUser.email.includes('@') && !displayUser.email.toLowerCase().includes('@progga.edu') && !displayUser.email.toLowerCase().includes('@scholasticbase.edu') && !displayUser.email.toLowerCase().includes('@greenfield.edu') ? (
-                  <div className="sv-info-row" style={{ borderBottom: 'none' }}>
-                    <span className="sv-info-label">Linked Account Email</span>
-                    <span className="sv-info-value">{displayUser.email.trim()}</span>
-                  </div>
-                ) : null}
+                <button className="sv-signout-btn" onClick={signOut}>LOG OUT</button>
               </div>
-              <button className="sv-signout-btn" onClick={signOut}>LOG OUT</button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
       </main>
     </div>

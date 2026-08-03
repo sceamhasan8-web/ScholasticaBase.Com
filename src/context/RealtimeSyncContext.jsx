@@ -5,9 +5,11 @@
  * It subscribes to:
  *   1. The current logged-in user's account document  → `users/{userId}`
  *   2. The school profile document                    → `schoolData/schoolProfile`
+ *   3. The entire users collection (admin-only)       → `users/*`
  *
  * Exposes:
- *   { liveUserAccount, liveSchoolProfile, syncStatus }
+ *   { liveUserAccount, liveSchoolProfile, syncStatus, liveUsersVersion,
+ *     notifyUserChanged, notifyIsAdmin }
  *
  * Lifecycle:
  *   - Listeners start the moment a userId is available.
@@ -28,9 +30,10 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase/firebase.js';
 import { COLLECTIONS, SCHOOL_PROFILE_DOC_ID } from '../firebase/firestoreSchema.js';
 
@@ -57,6 +60,36 @@ export const SYNC_STATUS = {
   ERROR: 'error',         // Unrecoverable listener error (e.g. permission denied)
 };
 
+// ─── localStorage key (global, unscoped — same as AuthContext) ────────────────
+const LOCAL_USERS_KEY = 'schoolAppLocalUsers';
+
+const mergeUsersIntoLocalStorage = (docs) => {
+  try {
+    const raw = window.localStorage.getItem(LOCAL_USERS_KEY);
+    const existing = raw ? JSON.parse(raw) : {};
+    let changed = false;
+    docs.forEach((data) => {
+      if (!data?.userId) return;
+      const key = data.userId;
+      // Never overwrite the SuperAdmin bootstrap account
+      if (key === '@@Siam##') return;
+      const prev = existing[key];
+      const merged = { ...prev, ...data };
+      if (!prev || JSON.stringify(prev) !== JSON.stringify(merged)) {
+        existing[key] = merged;
+        changed = true;
+      }
+    });
+    if (changed) {
+      window.localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(existing));
+      // Notify same-tab listeners (e.g. AdminDashboard) of the update
+      window.dispatchEvent(new CustomEvent('schoolUsersUpdate'));
+    }
+  } catch {
+    // ignore storage errors
+  }
+};
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function RealtimeSyncProvider({ children }) {
@@ -65,8 +98,15 @@ export function RealtimeSyncProvider({ children }) {
   // state to trigger listener restarts when it changes.
   const [activeUserId, setActiveUserId] = useState(null);
 
+  // Whether the currently logged-in user is an admin or super-admin.
+  // Only admins need the users-collection listener.
+  const [isAdmin, setIsAdmin] = useState(false);
+
   const [liveUserAccount, setLiveUserAccount] = useState(null);
   const [liveSchoolProfile, setLiveSchoolProfile] = useState(null);
+  // Increments each time the users collection changes — consumers watch this
+  // to know when to re-load the accounts list.
+  const [liveUsersVersion, setLiveUsersVersion] = useState(0);
   const [userSyncStatus, setUserSyncStatus] = useState(SYNC_STATUS.IDLE);
   const [profileSyncStatus, setProfileSyncStatus] = useState(SYNC_STATUS.IDLE);
 
@@ -74,6 +114,12 @@ export function RealtimeSyncProvider({ children }) {
   // current user without causing circular imports.
   const notifyUserChanged = useCallback((userId) => {
     setActiveUserId(userId || null);
+  }, []);
+
+  // Called by AuthProvider after login/logout to enable/disable the
+  // users-collection listener. Only admin-role sessions need it.
+  const notifyIsAdmin = useCallback((adminFlag) => {
+    setIsAdmin(!!adminFlag);
   }, []);
 
   // ── Listener 1: User Account Document ──────────────────────────────────────
@@ -189,6 +235,66 @@ export function RealtimeSyncProvider({ children }) {
     };
   }, []); // School profile listener runs for the lifetime of the app
 
+  // ── Listener 3: Users Collection (admin-only) ───────────────────────────────
+  // Activates only when an admin/super-admin is logged in.
+  // On every Firestore users-collection change (new user, password update, delete):
+  //   1. Merges all incoming user documents into schoolAppLocalUsers in localStorage
+  //      so other devices see new accounts without a page refresh.
+  //   2. Increments liveUsersVersion so AdminDashboard re-renders the accounts list.
+  const usersListenerActive = useRef(false);
+  useEffect(() => {
+    if (!db || !isAdmin || !activeUserId) {
+      usersListenerActive.current = false;
+      return;
+    }
+
+    usersListenerActive.current = true;
+    let mounted = true;
+
+    const usersCollectionRef = collection(db, COLLECTIONS.users);
+
+    const unsubscribe = onSnapshot(
+      usersCollectionRef,
+      { includeMetadataChanges: false }, // only real data changes, not cache metadata events
+      (snapshot) => {
+        if (!mounted) return;
+
+        // Collect all user documents from this snapshot
+        const freshDocs = [];
+        snapshot.forEach((docSnap) => {
+          if (docSnap.exists()) {
+            freshDocs.push({ id: docSnap.id, ...docSnap.data() });
+          }
+        });
+
+        // Merge into localStorage so the accounts panel (and login) stays fresh
+        mergeUsersIntoLocalStorage(freshDocs);
+
+        // Signal consumers (AdminDashboard) to re-render their accounts list
+        setLiveUsersVersion((v) => v + 1);
+      },
+      (err) => {
+        if (!mounted) return;
+        const code = String(err?.code || '').toLowerCase();
+        if (code === 'permission-denied') {
+          // Firestore rules may restrict collection reads — non-fatal
+          console.warn(
+            '[RealtimeSyncContext] Users collection listener: permission denied. ' +
+            'Check Firestore rules for the users collection.'
+          );
+        } else {
+          console.warn('[RealtimeSyncContext] Users collection listener error:', err?.message);
+        }
+      }
+    );
+
+    return () => {
+      mounted = false;
+      usersListenerActive.current = false;
+      unsubscribe();
+    };
+  }, [isAdmin, activeUserId]); // restart whenever admin status or active user changes
+
   // ── Derived sync status ─────────────────────────────────────────────────────
   const syncStatus = useMemo(() => {
     if (userSyncStatus === SYNC_STATUS.ERROR || profileSyncStatus === SYNC_STATUS.ERROR)
@@ -211,12 +317,22 @@ export function RealtimeSyncProvider({ children }) {
       /** Overall real-time sync status string (see SYNC_STATUS enum) */
       syncStatus,
       /**
+       * Increments each time the Firestore users collection changes.
+       * AdminDashboard watches this to know when to reload the accounts list.
+       */
+      liveUsersVersion,
+      /**
        * Call this from AuthProvider whenever the logged-in userId changes.
        * This starts/stops the user account listener accordingly.
        */
       notifyUserChanged,
+      /**
+       * Call this from AuthProvider with true when an admin logs in, false on logout.
+       * Enables/disables the users-collection listener to keep accounts in sync.
+       */
+      notifyIsAdmin,
     }),
-    [liveUserAccount, liveSchoolProfile, syncStatus, notifyUserChanged]
+    [liveUserAccount, liveSchoolProfile, syncStatus, liveUsersVersion, notifyUserChanged, notifyIsAdmin]
   );
 
   return (
@@ -240,7 +356,9 @@ export function useRealtimeSyncContext() {
       liveUserAccount: null,
       liveSchoolProfile: null,
       syncStatus: SYNC_STATUS.IDLE,
+      liveUsersVersion: 0,
       notifyUserChanged: () => {},
+      notifyIsAdmin: () => {},
     };
   }
   return ctx;

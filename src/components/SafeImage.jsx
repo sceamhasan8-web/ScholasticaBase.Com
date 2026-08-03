@@ -159,15 +159,14 @@ export default function SafeImage({
       {/* 1. Loading Skeleton */}
       {status === 'loading' && (
         <span
-          className="safe-img-skeleton"
+          className="skeleton-shimmer"
           style={{
             position: 'absolute',
             inset: 0,
             borderRadius: 'inherit',
-            background: 'linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%)',
-            backgroundSize: '200% 100%',
-            animation: 'safe-skeleton-pulse 1.5s ease-in-out infinite',
             zIndex: 1,
+            height: '100%',
+            width: '100%',
           }}
         />
       )}

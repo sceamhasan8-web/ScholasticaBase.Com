@@ -14,6 +14,28 @@
   padding-top: 10px !important;
   padding-bottom: 10px !important;
   gap: 12px !important;
+  align-items: center !important;
+}
+
+/* Desktop: topbar should not wrap */
+@media (min-width: 1024px) {
+  .tp-topbar {
+    flex-wrap: nowrap !important;
+    justify-content: space-between !important;
+  }
+
+  .tp-topbar-greeting {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .tp-topbar-greeting h2,
+  .tp-topbar-greeting p {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
 }
 
 .tp-topbar-right,
@@ -34,8 +56,6 @@
 .dashboard-school-name,
 .mark-sheet-school-name,
 .transcript-school-name,
-.tp-topbar-greeting h2,
-.tp-topbar-greeting p,
 .tp-greeting h1,
 .tp-greeting p,
 .tp-section-title,
@@ -43,6 +63,16 @@
   white-space: normal !important;
   word-wrap: break-word !important;
   overflow-wrap: break-word !important;
+}
+
+/* On mobile: allow topbar greeting text to wrap */
+@media (max-width: 1023px) {
+  .tp-topbar-greeting h2,
+  .tp-topbar-greeting p {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+  }
 }
 
 /* ── 2. AUTO-SCALING IMPLICIT GRID ENGINE (minmax) ── */
@@ -511,3 +541,310 @@
   stroke: #ffffff !important;
   opacity: 1 !important;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   STUDENT DASHBOARD RESPONSIVE & LAYOUT ENGINE FIXES
+   ───────────────────────────────────────────────────────────── */
+
+.tp-sidebar-nav-item,
+.tp-drawer .tp-sidebar-nav-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.tp-sidebar-label-text {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  text-align: left !important;
+}
+
+.tp-topbar-greeting,
+.tp-greeting {
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+.tp-topbar-greeting h2,
+.tp-topbar-greeting p {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  min-width: 0 !important;
+}
+
+.tp-greeting h1 {
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  hyphens: auto !important;
+  min-width: 0 !important;
+}
+
+.sv-main-container {
+  width: 100% !important;
+  max-width: 1360px !important;
+  margin: 0 auto !important;
+  padding: clamp(16px, 2.5vw, 32px) !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 24px !important;
+}
+
+@media (min-width: 1024px) {
+  .tp-shell {
+    display: flex !important;
+    flex-direction: row !important;
+    min-height: 100vh !important;
+    width: 100% !important;
+    background-color: #f8fafc !important;
+  }
+
+  .tp-sidebar {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 270px !important;
+    min-width: 270px !important;
+    flex-shrink: 0 !important;
+    height: 100vh !important;
+    position: sticky !important;
+    top: 0 !important;
+    background: #ffffff !important;
+    border-right: 1px solid #e2e8f0 !important;
+    z-index: 40 !important;
+    box-shadow: 4px 0 24px rgba(15, 23, 42, 0.03) !important;
+    padding: 24px 16px !important;
+  }
+
+  .tp-main {
+    flex: 1 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 100vh !important;
+    background-color: #f8fafc !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .tp-topbar {
+    margin: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 50 !important;
+    background: #ffffff !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03) !important;
+  }
+
+  .tp-school-brand {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .tp-sidebar .tp-sidebar-label-text {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .tp-topbar {
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  
+  .tp-cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   MASTER SIDEBAR FONT VISIBILITY & HIGH-CONTRAST ENGINE
+   ══════════════════════════════════════════════════════════════════════ */
+.tp-sidebar {
+  background: #ffffff !important;
+  border-right: 1px solid #e2e8f0 !important;
+}
+
+.tp-sidebar-school {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  font-size: 13.5px !important;
+}
+
+.tp-sidebar-location {
+  color: #64748b !important;
+  font-size: 12px !important;
+}
+
+.sv-sidebar-section-label {
+  color: #64748b !important;
+  font-weight: 800 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.08em !important;
+}
+
+.tp-sidebar-nav-item:not(.active),
+.tp-drawer .tp-sidebar-nav-item:not(.active) {
+  color: #334155 !important;
+  font-weight: 600 !important;
+  background: transparent !important;
+}
+
+.tp-sidebar-nav-item:not(.active) svg,
+.tp-drawer .tp-sidebar-nav-item:not(.active) svg {
+  color: #475569 !important;
+  stroke: #475569 !important;
+  opacity: 1 !important;
+}
+
+.tp-sidebar-nav-item:hover:not(.active),
+.tp-drawer .tp-sidebar-nav-item:hover:not(.active) {
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+}
+
+.tp-sidebar-nav-item:hover:not(.active) svg,
+.tp-drawer .tp-sidebar-nav-item:hover:not(.active) svg {
+  color: #1d4ed8 !important;
+  stroke: #1d4ed8 !important;
+}
+
+.tp-sidebar-nav-item.active,
+.tp-drawer .tp-sidebar-nav-item.active {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28) !important;
+}
+
+.tp-sidebar-nav-item.active svg,
+.tp-drawer .tp-sidebar-nav-item.active svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.tp-sidebar-user-info p {
+  color: #0f172a !important;
+}
+
+.tp-sidebar-signout {
+  color: #ef4444 !important;
+  font-weight: 600 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   MASTER HERO & EVENING GREETING LAYOUT ENGINE
+   ══════════════════════════════════════════════════════════════════════ */
+.tp-hero {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #1d4ed8 100%) !important;
+  border-radius: 20px !important;
+  padding: 28px 36px !important;
+  gap: 24px !important;
+  position: relative !important;
+  overflow: hidden !important;
+  box-shadow: 0 12px 32px rgba(37, 99, 235, 0.22) !important;
+  margin: 24px 32px 0 !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+
+.tp-hero .tp-greeting {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+  width: auto !important;
+  gap: 8px !important;
+}
+
+.tp-hero .tp-greeting h1 {
+  font-size: clamp(20px, 2.2vw, 30px) !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+  line-height: 1.3 !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  display: block !important;
+  width: 100% !important;
+}
+
+.tp-hero .tp-greeting p {
+  font-size: 14px !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  margin: 0 !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  display: block !important;
+  width: 100% !important;
+}
+
+.tp-hero .tp-school-brand {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 14px !important;
+  flex-shrink: 0 !important;
+  padding: 14px 20px !important;
+  background: #ffffff !important;
+  border-radius: 16px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12) !important;
+  max-width: 360px !important;
+  min-width: 0 !important;
+}
+
+.tp-hero .tp-school-brand .tp-school-name {
+  display: block !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  margin: 0 !important;
+  line-height: 1.35 !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+
+.tp-hero .tp-school-brand .tp-school-location {
+  display: block !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #475569 !important;
+  margin-top: 3px !important;
+  white-space: normal !important;
+  word-break: normal !important;
+}
+
+@media (max-width: 767px) {
+  .tp-hero {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 20px !important;
+    margin: 16px !important;
+  }
+  
+  .tp-hero .tp-school-brand {
+    max-width: 100% !important;
+  }
+}
+
+

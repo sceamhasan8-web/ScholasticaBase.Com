@@ -25,6 +25,7 @@
     "git": "^0.1.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-loading-skeleton": "^3.5.0",
     "react-router-dom": "^6.16.0"
   },
   "devDependencies": {

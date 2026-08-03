@@ -82,7 +82,7 @@
         grid-template-columns: auto minmax(0, 1fr) auto;
         align-items: center;
         gap: clamp(10px, 2vw, 16px);
-        margin: 0 calc(var(--app-page-pad, 16px) * -1) 14px;
+        margin: 0 0 14px;
         padding: 12px max(var(--app-page-pad, 16px), env(safe-area-inset-left, 0px)) !important;
         background: linear-gradient(135deg, rgba(255, 255, 255, .96), rgba(239, 246, 255, .92));
         border-bottom: 1px solid rgba(191, 219, 254, .82);

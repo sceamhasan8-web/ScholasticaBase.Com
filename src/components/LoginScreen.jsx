@@ -49,23 +49,23 @@ export default function LoginScreen() {
       let signInRole, accessMode;
       const sanitizedUserId = (fields.userId || '').trim();
 
-      // Dynamic Role Resolution: Perform inline asynchronous lookup from localStorage
+      // Role-detection pre-read: synchronous localStorage hint used only for
+      // routing (admin/teacher/principal). Actual credential validation happens
+      // inside signIn() via a server-direct Firestore fetch — not this read.
       let matchedUser = null;
       try {
-        const raw = await Promise.resolve(window.localStorage.getItem('schoolAppLocalUsers'));
+        const raw = window.localStorage.getItem('schoolAppLocalUsers');
         if (raw) {
           const users = JSON.parse(raw);
           if (users && typeof users === 'object') {
             const matchedKey = Object.keys(users).find(
               (key) => key.toLowerCase() === sanitizedUserId.toLowerCase()
             );
-            if (matchedKey) {
-              matchedUser = users[matchedKey];
-            }
+            if (matchedKey) matchedUser = users[matchedKey];
           }
         }
-      } catch (err) {
-        // Robust exception handling: gracefully ignore JSON parsing exceptions or missing local storage anomalies
+      } catch {
+        // Gracefully ignore JSON parsing errors or missing localStorage entries
       }
 
       const extractedRole = matchedUser ? String(matchedUser.role || '').trim().toLowerCase() : '';

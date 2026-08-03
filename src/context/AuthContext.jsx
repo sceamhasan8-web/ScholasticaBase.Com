@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { deleteUserAccount, getUserAccount, saveUserAccount, fetchSchoolProfileByEiin } from '../firebase/firestoreSchema.js';
+import { deleteUserAccount, getUserAccount, getUserAccountFresh, saveUserAccount, fetchSchoolProfileByEiin } from '../firebase/firestoreSchema.js';
 import { findRegisteredSchoolByEiin, registerSchoolInRegistry, getAllStudents } from '../utils/schoolData.js';
 import { useNavigate } from 'react-router-dom';
 import { signInWithPopup } from 'firebase/auth';
@@ -115,13 +115,20 @@ export function AuthProvider({ children }) {
   const navigate = useNavigate();
 
   // ── Real-time sync integration ────────────────────────────────────────────
-  const { liveUserAccount, notifyUserChanged } = useRealtimeSyncContext();
+  const { liveUserAccount, notifyUserChanged, notifyIsAdmin } = useRealtimeSyncContext();
 
   // Notify RealtimeSyncContext whenever the active userId changes so it can
   // start or stop the user-account Firestore listener accordingly.
   useEffect(() => {
     notifyUserChanged(user?.userId ?? null);
   }, [user?.userId, notifyUserChanged]);
+
+  // Notify RealtimeSyncContext when admin status changes so it can enable/disable
+  // the users-collection listener (only admins need cross-device account sync).
+  useEffect(() => {
+    const isAdminSession = !!(user?.isSuperAdmin || String(user?.role || '').toLowerCase() === 'admin');
+    notifyIsAdmin(isAdminSession);
+  }, [user?.role, user?.isSuperAdmin, notifyIsAdmin]);
 
   // When Firestore pushes a live update for the current user's account,
   // merge the changed fields into the in-memory session and re-persist to
@@ -243,14 +250,32 @@ export function AuthProvider({ children }) {
 
     if (isOnline) {
       try {
-        const remoteAccount = await getUserAccount(trimmedUserId);
+        // ── Server-direct fetch: bypasses IndexedDB persistent cache ──────────
+        // getDocFromServer() guarantees we get the latest Firestore data even
+        // if the local cache is stale (e.g. password changed on another device
+        // seconds ago). A 5-second timeout guards against slow network; on
+        // expiry we fall through to the locally-cached credentials so offline
+        // and low-connectivity logins still work.
+        const remoteAccount = await Promise.race([
+          getUserAccountFresh(trimmedUserId),
+          new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error('__fetch_timeout__')),
+              5000
+            )
+          ),
+        ]);
         if (remoteAccount) {
           account = { ...account, ...remoteAccount };
           const latestUsers = loadLocalUsers();
           persistLocalUsers({ ...latestUsers, [trimmedUserId]: account });
         }
       } catch (err) {
-        if (!account && !isFirestoreUnavailableError(err)) {
+        if (err?.message === '__fetch_timeout__') {
+          // Server unreachable within timeout — proceed with local cache.
+          // This preserves offline / low-connectivity login.
+          console.warn('[signIn] Firestore server fetch timed out — using locally-cached credentials.');
+        } else if (!account && !isFirestoreUnavailableError(err)) {
           throw err;
         }
       }

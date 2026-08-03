@@ -3,6 +3,7 @@ import {
     deleteDoc,
     doc,
     getDoc,
+    getDocFromServer,
     getDocs,
     onSnapshot,
     query,
@@ -212,6 +213,20 @@ export const saveTeacherPanelData = (payload = {}, schoolId) => {
 
 export const getUserAccount = async (userId) => {
     const snapshot = await getDoc(refs.user(userId));
+    return snapshot.exists() ? snapshot.data() : null;
+};
+
+/**
+ * Fetch a user account directly from the Firestore server, bypassing
+ * the IndexedDB persistent cache completely.
+ *
+ * Use this during login/credential verification to guarantee the freshest
+ * password is used — even if the local cache is seconds or minutes behind.
+ * For all other reads (profile displays, etc.) prefer getUserAccount() to
+ * avoid unnecessary network round-trips.
+ */
+export const getUserAccountFresh = async (userId) => {
+    const snapshot = await getDocFromServer(refs.user(userId));
     return snapshot.exists() ? snapshot.data() : null;
 };
 

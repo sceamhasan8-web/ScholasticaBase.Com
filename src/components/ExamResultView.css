@@ -363,13 +363,30 @@
   display: block;
 }
 
+/* ── Named page for landscape printing of the tabulation sheet ── */
+@page tabulation-landscape {
+  size: A4 landscape;
+  margin: 8mm;
+}
+
+/* ── Hide print-only header row on screen ── */
+.print-header-repeat-row {
+  display: none;
+}
+
 /* Print-Specific styling rules: Guarantees 1:1 identical reproduction of on-screen card on 1 A4 page */
 @media print {
 
-  /* ── A4 Portrait page setup with minimal margins for max usable space ── */
+  /* ── A4 Landscape, zero margin — maximizes usable area for 12+ subject columns ── */
   @page {
+    size: A4 landscape;
+    margin: 0;
+  }
+
+  /* ── A4 Portrait — Named page for individual Transcript/Mark-sheet ── */
+  @page portrait-page {
     size: A4 portrait;
-    margin: 8mm;
+    margin: 0;
   }
 
   /* ── Force exact color reproduction across all print engines ── */
@@ -387,15 +404,23 @@
     visibility: hidden !important;
   }
 
-  /* ── 2. Selectively show printable areas and their children ── */
-  .mark-sheet-print-area-wrapper,
-  .mark-sheet-print-area-wrapper *,
-  .results-tabulation-sheet,
-  .results-tabulation-sheet *,
-  .printable-area,
-  .printable-area *,
-  .print-container,
-  .print-container * {
+  /* ── 2. Mode-based visibility: tabulation list vs transcript sheet ── */
+
+  /* TABULATION MODE: show only tabulation sheet */
+  body.print-mode-tabulation .results-tabulation-sheet,
+  body.print-mode-tabulation .results-tabulation-sheet * {
+    visibility: visible !important;
+  }
+
+  /* TRANSCRIPT MODE: show only mark-sheet wrapper */
+  body.print-mode-transcript .mark-sheet-print-area-wrapper,
+  body.print-mode-transcript .mark-sheet-print-area-wrapper * {
+    visibility: visible !important;
+  }
+
+  /* FALLBACK (no mode class): show tabulation sheet by default */
+  body:not(.print-mode-transcript) .results-tabulation-sheet,
+  body:not(.print-mode-transcript) .results-tabulation-sheet * {
     visibility: visible !important;
   }
 
@@ -441,23 +466,43 @@
     transform: none !important;
   }
 
-  /* ── 5. Outermost print wrapper — fills the viewport as centering anchor ── */
+  /* ── 5. Mark-sheet wrapper: hide in tabulation mode, show in transcript mode ── */
+
+  /* Default: hide mark-sheet wrapper (tabulation mode) */
   .mark-sheet-print-area-wrapper {
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
+    display: none !important;
+    visibility: hidden !important;
+    position: static !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
+  }
+
+  /* Transcript mode: show mark-sheet wrapper as fixed full-page overlay */
+  body.print-mode-transcript .mark-sheet-print-area-wrapper {
     display: flex !important;
-    align-items: center !important;
+    flex-direction: column !important;
     justify-content: center !important;
+    align-items: center !important;
+    visibility: visible !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background: #ffffff !important;
     z-index: 999999 !important;
     overflow: visible !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    /* ── Force portrait A4 for marksheet/transcript pages ── */
+    page: portrait-page !important;
   }
 
   /* ── 5b. Inner print-container should NOT re-apply fixed positioning ── */
@@ -469,28 +514,272 @@
     top: auto !important;
     right: auto !important;
     bottom: auto !important;
-    width: auto !important;
-    height: auto !important;
-    margin: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 auto !important;
     padding: 0 !important;
-    display: block !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
     background: transparent !important;
     z-index: auto !important;
     overflow: visible !important;
     box-shadow: none !important;
     border: none !important;
+    /* ── Force portrait A4 for marksheet/transcript inner container ── */
+    page: portrait-page !important;
   }
 
-  /* ── 6. Transcript container — fits exactly on 1 A4 page ── */
+  /* ── 5b-2. Transcript container — auto-fit via JS-injected CSS zoom ── */
+  /* The print handler measures scrollWidth + scrollHeight, then injects:    */
+  /*   zoom: N  (layout-affecting, shrinks both width AND height uniformly)   */
+  /* Base rules here ensure no clipping or overflow interferes with zoom.     */
   .transcript-container {
+    box-sizing: border-box !important;
+    overflow: visible !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    max-width: none !important;
+  }
+
+  /* ── 5c. Tabulation Sheet — full-page fixed overlay, zero margin, fits 12+ subjects ── */
+  .results-tabulation-sheet {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
+    display: block !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 3mm 3mm 2mm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+    z-index: 999999 !important;
+    font-size: 5.5pt !important;
+    /* Scale entire sheet to guarantee all columns fit */
+    transform-origin: top left !important;
+  }
+
+  .results-tabulation-sheet .tp-table-container {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #ffffff !important;
+  }
+
+  .results-tabulation-sheet .tp-table-responsive {
+    overflow: visible !important;
+    overflow-x: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .results-tabulation-sheet table {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+    table-layout: auto !important;
+  }
+
+  .results-tabulation-sheet thead {
+    display: table-header-group !important;
+  }
+
+  .results-tabulation-sheet tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .results-tabulation-sheet tbody {
+    display: table-row-group !important;
+  }
+
+  /* ── Ultra-compact table cells: supports 12+ subjects on 1 landscape page ── */
+  .results-tabulation-sheet table th,
+  .results-tabulation-sheet table td {
+    font-size: 5.5pt !important;
+    padding: 2px 3px !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
+  }
+
+  /* Subject column headers: allow slight wrap for long names */
+  .results-tabulation-sheet table thead tr:last-child th {
+    min-width: 0 !important;
+    width: auto !important;
+    max-width: 55px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    text-align: center !important;
+    font-size: 5pt !important;
+    line-height: 1.2 !important;
+    padding: 2px 2px !important;
+  }
+
+  /* Subject data cells */
+  .results-tabulation-sheet table tbody td {
+    text-align: center !important;
+    padding: 1px 2px !important;
+  }
+
+  /* Score number (15px on screen → compact on print) */
+  .results-tabulation-sheet table td span[style*="15px"],
+  .results-tabulation-sheet table td span[style*="font-size: 15"] {
+    font-size: 6pt !important;
+    font-weight: 800 !important;
+  }
+
+  /* CQ/MCQ detail line */
+  .results-tabulation-sheet table td div[style*="10px"],
+  .results-tabulation-sheet table td div[style*="font-size: 10"] {
+    font-size: 4pt !important;
+    line-height: 1.1 !important;
+  }
+
+  /* Fail label under score */
+  .results-tabulation-sheet table td span[style*="9px"] {
+    font-size: 4pt !important;
+    padding: 0 2px !important;
+  }
+
+  /* Subject score columns: no min-width */
+  .results-tabulation-sheet table th[data-subject],
+  .results-tabulation-sheet table td[data-subject] {
+    min-width: 0 !important;
+    width: auto !important;
+  }
+
+  /* Grade badge — compact pill */
+  .results-tabulation-sheet .grade-badge,
+  .results-tabulation-sheet [class*="grade"],
+  .results-tabulation-sheet table td span[style*="border-radius: 6px"],
+  .results-tabulation-sheet table td span[style*="borderRadius"] {
+    font-size: 5pt !important;
+    padding: 1px 2px !important;
+    border-radius: 2px !important;
+    min-width: 18px !important;
+    display: inline-block !important;
+  }
+
+  /* Student name column — slightly larger for readability */
+  .results-tabulation-sheet table td:first-child,
+  .results-tabulation-sheet table th:first-child {
+    font-size: 6pt !important;
+    max-width: 80px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  /* Avatar circle in student name cell */
+  .results-tabulation-sheet .tp-avatar-text {
+    display: none !important;
+  }
+
+  /* CLASS/ROLL/GROUP columns */
+  .results-tabulation-sheet table td:nth-child(2),
+  .results-tabulation-sheet table td:nth-child(3),
+  .results-tabulation-sheet table td:nth-child(4),
+  .results-tabulation-sheet table th:nth-child(2),
+  .results-tabulation-sheet table th:nth-child(3),
+  .results-tabulation-sheet table th:nth-child(4) {
+    font-size: 5.5pt !important;
+    padding: 2px 2px !important;
+  }
+
+  /* TOTAL / AVERAGE / GPA / RANK — last summary columns */
+  .results-tabulation-sheet .tp-badge-rank {
+    font-size: 5pt !important;
+    padding: 1px 4px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Show the print-only header row on all pages (via thead repeat) */
+  .print-header-repeat-row {
+    display: table-row !important;
+  }
+
+  .print-header-centered {
+    text-align: center !important;
+    width: 100% !important;
+  }
+
+  .print-header-centered * {
+    text-align: center !important;
+  }
+
+  /* ── Print Header: compact school name + exam title ── */
+  .print-header-repeat-row th {
+    padding: 3px 6px 4px !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .print-branch-badge {
+    display: inline-block !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 3px !important;
+    padding: 1px 5px !important;
+    font-size: 6pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* School name in header: compact */
+  .results-tabulation-sheet .print-institution-name {
+    font-size: 11pt !important;
+    margin: 0 !important;
+    line-height: 1.2 !important;
+  }
+
+  /* Exam title: compact */
+  .results-tabulation-sheet .print-title {
+    font-size: 8pt !important;
+    margin: 1px 0 !important;
+    line-height: 1.2 !important;
+  }
+
+  /* Subtitle (Class: FIVE) */
+  .results-tabulation-sheet .print-subtitle {
+    font-size: 6pt !important;
+    margin: 1px 0 0 !important;
+  }
+
+  /* Logo in header: small */
+  .results-tabulation-sheet .print-header-centered img {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  /* Header bottom border: thinner */
+  .results-tabulation-sheet .print-header-centered>div:first-child {
+    padding-bottom: 4px !important;
+    margin-bottom: 2px !important;
+    border-bottom-width: 1px !important;
+  }
+
+  /* ── 6. Transcript container — fits exactly on 1 A4 portrait page ── */
+  .transcript-container {
+    page: portrait-page !important;
     position: relative !important;
-    /* A4 printable area with 8mm margins: 210-16=194mm wide */
-    width: 190mm !important;
-    max-width: 190mm !important;
-    min-height: 274mm !important;
-    /* Removed max-height so signature section is never clipped */
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
     margin: 0 auto !important;
-    padding: 16px 20px !important;
+    padding: 12px 16px !important;
     box-sizing: border-box !important;
 
     /* Flex layout: content grows, signature stays at bottom */
@@ -775,7 +1064,7 @@
   }
 
   /* ── Watermark layer ── */
-  .transcript-container > div[aria-hidden="true"] {
+  .transcript-container>div[aria-hidden="true"] {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
