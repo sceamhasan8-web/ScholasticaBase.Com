@@ -4,7 +4,18 @@
 
 /* ── 1. FLUID FLEXBOX & FLEX-WRAP ARCHITECTURE ── */
 
-.tp-topbar,
+.tp-topbar {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  height: auto !important;
+  min-height: 60px !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  gap: 8px !important;
+}
+
 .login-header,
 .tp-section-header {
   display: flex !important;
@@ -17,28 +28,29 @@
   align-items: center !important;
 }
 
-/* Desktop: topbar should not wrap */
-@media (min-width: 1024px) {
-  .tp-topbar {
-    flex-wrap: nowrap !important;
-    justify-content: space-between !important;
-  }
-
-  .tp-topbar-greeting {
-    flex: 1 1 0% !important;
-    min-width: 0 !important;
-    overflow: hidden !important;
-  }
-
-  .tp-topbar-greeting h2,
-  .tp-topbar-greeting p {
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-  }
+.tp-topbar-greeting {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
 }
 
-.tp-topbar-right,
+.tp-topbar-greeting h2,
+.tp-topbar-greeting p {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  min-width: 0 !important;
+}
+
+.tp-topbar-right {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  flex-shrink: 0 !important;
+  gap: 8px !important;
+  align-items: center !important;
+  margin-left: auto !important;
+}
+
 .login-header-left,
 .login-header-right,
 .login-header-links {
@@ -565,10 +577,21 @@
   text-align: left !important;
 }
 
-.tp-topbar-greeting,
-.tp-greeting {
+.tp-topbar-greeting {
   min-width: 0 !important;
   flex: 1 1 auto !important;
+}
+
+.tp-greeting {
+  min-width: 240px !important;
+  flex: 1 1 240px !important;
+}
+
+.tp-greeting-eyebrow {
+  white-space: nowrap !important;
+  word-break: normal !important;
+  width: fit-content !important;
+  max-width: 100% !important;
 }
 
 .tp-topbar-greeting h2,
@@ -582,8 +605,15 @@
 .tp-greeting h1 {
   word-break: normal !important;
   overflow-wrap: break-word !important;
-  hyphens: auto !important;
+  hyphens: manual !important;
   min-width: 0 !important;
+}
+
+.tp-greeting p {
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  hyphens: manual !important;
 }
 
 .sv-main-container {
@@ -766,8 +796,8 @@
 .tp-hero .tp-greeting {
   display: flex !important;
   flex-direction: column !important;
-  flex: 1 1 0% !important;
-  min-width: 0 !important;
+  flex: 1 1 250px !important;
+  min-width: 250px !important;
   width: auto !important;
   gap: 8px !important;
 }

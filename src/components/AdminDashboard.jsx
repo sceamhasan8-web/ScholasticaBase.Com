@@ -1279,7 +1279,7 @@ export default function AdminDashboard() {
               <p>Learn · Manage · Coordinate</p>
             )}
           </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="tp-topbar-right">
             <NotificationBell
               userRole="admin"
               userId={user?.userId || 'admin'}

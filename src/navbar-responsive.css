@@ -431,7 +431,7 @@
     position: relative;
     overflow: hidden;
     display: grid !important;
-    grid-template-columns: minmax(0, 1.15fr) minmax(280px, .85fr);
+    grid-template-columns: minmax(250px, 1.15fr) minmax(250px, .85fr);
     align-items: stretch;
     gap: clamp(18px, 3vw, 30px);
     padding: clamp(22px, 3.2vw, 36px) !important;
@@ -456,7 +456,7 @@
 .tp-hero-pro .tp-greeting {
     position: relative;
     z-index: 1;
-    min-width: 0;
+    min-width: 250px !important;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -465,6 +465,7 @@
 
 .tp-greeting-eyebrow {
     width: fit-content;
+    white-space: nowrap !important;
     padding: 7px 12px;
     border-radius: 999px;
     background: rgba(37, 99, 235, .1);

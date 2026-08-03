@@ -1252,20 +1252,45 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
    * height are properly shrunk in the browser's layout engine before printing.
    */
   const computeMarksheetZoom = () => {
-    const A4_W = 860;   // px at 96 dpi (expanded A4 width to eliminate side margins)
-    const A4_H = 1190;  // px at 96 dpi (expanded A4 height)
+    // ── Fixed render width ────────────────────────────────────────────────────
+    // The injected print CSS sets transcript-container to exactly RENDER_W px.
+    // We measure the height AT that width so the zoom is device-independent.
+    const RENDER_W = 750;   // must match the width set in injected CSS below
+    const A4_W     = 790;   // A4 paper usable width in px @96dpi (~210mm - tiny inset)
+    const A4_H     = 1110;  // A4 paper usable height in px @96dpi (conservative)
+
     const el = document.querySelector('.transcript-container');
     if (!el) return 1;
-    // Temporarily remove any previously injected zoom so we measure natural size
-    const prev = document.getElementById('marksheet-portrait-override');
-    const prevZoom = el.style.zoom;
-    if (prev) el.style.zoom = '1';
-    const w = el.scrollWidth || 750;
+
+    // Save & clear any previously injected zoom so we measure natural height
+    const overrideEl   = document.getElementById('marksheet-portrait-override');
+    const prevWidth    = el.style.width;
+    const prevMaxWidth = el.style.maxWidth;
+    const prevMinWidth = el.style.minWidth;
+    const prevZoom     = el.style.zoom;
+    if (overrideEl) el.style.zoom = '1';
+
+    // Set exactly the same width we will use during printing
+    el.style.width    = `${RENDER_W}px`;
+    el.style.maxWidth = `${RENDER_W}px`;
+    el.style.minWidth = `${RENDER_W}px`;
+
+    // Reading scrollHeight forces a synchronous reflow at the new width
     const h = el.scrollHeight || 950;
-    if (prev) el.style.zoom = prevZoom;
-    const zoomW = A4_W / w;
+
+    // Restore inline styles (restores screen layout immediately)
+    el.style.width    = prevWidth;
+    el.style.maxWidth = prevMaxWidth;
+    el.style.minWidth = prevMinWidth;
+    if (overrideEl) el.style.zoom = prevZoom;
+
+    // zoom_W: how much to scale RENDER_W to fill A4 width
+    // zoom_H: how much to scale measured height to fit A4 height
+    // Take the smaller so content never overflows in either dimension
+    const zoomW = A4_W / RENDER_W;          // ~1.053 — slight upscale to fill paper
     const zoomH = A4_H / h;
-    return Math.max(0.4, Math.min(1.1, zoomW, zoomH));
+    // Cap upscale at 1.0 so we never blow content up beyond natural size
+    return Math.max(0.35, Math.min(1.0, zoomW, zoomH));
   };
 
   const _triggerMarksheetPrint = () => {
@@ -1331,8 +1356,14 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       '  }',
       '  .transcript-container {',
       `    zoom: ${zoom.toFixed(4)} !important;`,
-      '    width: 100% !important;',
-      '    max-width: none !important;',
+      // Fixed pixel width — CRITICAL for mobile/tablet print.
+      // Mobile browsers use device viewport width for 100vw/100% in print
+      // (e.g. 375px on iPhone), which would cause content to reflow and
+      // overflow onto 2 pages. A fixed 750px ensures layout is always
+      // A4-equivalent regardless of device screen width.
+      '    width: 750px !important;',
+      '    max-width: 750px !important;',
+      '    min-width: 750px !important;',
       '    height: auto !important;',
       '    min-height: auto !important;',
       '    margin: 0 auto !important;',
