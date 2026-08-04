@@ -1341,9 +1341,10 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     // The injected print CSS sets transcript-container to exactly RENDER_W px.
     // We measure the height AT that width so the zoom is device-independent.
     // Measuring width & conservative target height compatible with BOTH A4 (794x1123px) and US Letter (816x1056px)
+    // Measuring width & conservative target height compatible with BOTH US Letter (816x1056px) and A4 (794x1123px)
     const RENDER_W = 794;   // ~210mm @ 96dpi
     const PAGE_W   = 794;   // Usable width target
-    const PAGE_H   = 980;   // 980px target height strictly guarantees 1-page fit on BOTH A4 & Letter with ZERO 2nd page break!
+    const PAGE_H   = 940;   // 940px target height strictly guarantees 1-page fit on BOTH Letter & A4 with ZERO 2nd page break!
 
     const el = document.querySelector('.transcript-container');
     if (!el) return 1;
@@ -1371,7 +1372,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     if (overrideEl) el.style.zoom = prevZoom;
 
     // zoom_W: scale to fill paper width
-    // zoom_H: scale to fit 980px height ensuring strictly 1 page without 2nd page spillover
+    // zoom_H: scale to fit target height ensuring strictly 1 page without 2nd page spillover
     const zoomW = PAGE_W / RENDER_W;
     const zoomH = PAGE_H / h;
     return Math.max(0.30, Math.min(1.0, zoomW, zoomH));
@@ -1382,12 +1383,14 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     document.body.classList.add('print-mode-transcript');
 
     const zoom = computeMarksheetZoom();
+    // Mobile browsers ignore CSS zoom property, so we use transform: scale(0.92) to scale down for 100% 1-page fit on mobile
+    const scaleFactor = Math.min(0.93, Math.max(0.75, zoom));
 
-    // Build injected print style for true 100% edge-to-edge printing compatible with both A4 and US Letter formats
+    // Build injected print style for true 100% edge-to-edge printing explicit to US Letter format
     const styleContent = [
       '@media print {',
-      '  @page { size: portrait !important; margin: 0 !important; }',
-      '  @page portrait-page { size: portrait !important; margin: 0 !important; }',
+      '  @page { size: letter portrait !important; margin: 0 !important; }',
+      '  @page portrait-page { size: letter portrait !important; margin: 0 !important; }',
       '  html, body {',
       '    height: 100% !important;',
       '    max-height: 100vh !important;',
@@ -1464,12 +1467,16 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       '  }',
       '  .transcript-container {',
       `    zoom: ${zoom.toFixed(4)} !important;`,
+      `    transform: scale(${scaleFactor.toFixed(4)}) !important;`,
+      `    -webkit-transform: scale(${scaleFactor.toFixed(4)}) !important;`,
+      '    transform-origin: top center !important;',
+      '    -webkit-transform-origin: top center !important;',
       '    width: 100% !important;',
       '    max-width: 100% !important;',
       '    min-width: 100% !important;',
       '    box-sizing: border-box !important;',
-      '    margin: 0 !important;',
-      '    padding: 18px 22px !important;',
+      '    margin: 0 auto !important;',
+      '    padding: 16px 20px !important;',
       '    border-radius: 0 !important;',
       '    overflow: hidden !important;',
       '    page-break-before: avoid !important;',

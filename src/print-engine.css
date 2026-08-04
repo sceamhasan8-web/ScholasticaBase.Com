@@ -109,7 +109,7 @@
 
   /* Portrait Named Page — for individual Transcript/Mark-sheet */
   @page portrait-page {
-    size: A4 portrait;
+    size: letter portrait;
     margin: 4mm;
   }
 

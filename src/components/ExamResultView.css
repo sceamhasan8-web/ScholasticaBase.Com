@@ -383,9 +383,9 @@
     margin: 0;
   }
 
-  /* ── A4 Portrait — Named page for individual Transcript/Mark-sheet ── */
+  /* ── Letter Portrait — Named page for individual Transcript/Mark-sheet ── */
   @page portrait-page {
-    size: A4 portrait;
+    size: letter portrait;
     margin: 0;
   }
 
@@ -541,6 +541,10 @@
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     max-width: none !important;
+    transform: scale(0.92) !important;
+    -webkit-transform: scale(0.92) !important;
+    transform-origin: top center !important;
+    -webkit-transform-origin: top center !important;
   }
 
   /* ── 5c. Tabulation Sheet — full-page fixed overlay, zero margin, fits 12+ subjects ── */
@@ -770,7 +774,7 @@
     border-bottom-width: 1px !important;
   }
 
-  /* ── 6. Transcript container — fits exactly on 1 A4 portrait page ── */
+  /* ── 6. Transcript container — fits exactly on 1 Letter portrait page ── */
   .transcript-container {
     page: portrait-page !important;
     position: relative !important;
@@ -781,6 +785,10 @@
     margin: 0 auto !important;
     padding: 12px 16px !important;
     box-sizing: border-box !important;
+    transform: scale(0.92) !important;
+    -webkit-transform: scale(0.92) !important;
+    transform-origin: top center !important;
+    -webkit-transform-origin: top center !important;
 
     /* Flex layout: content grows, signature stays at bottom */
     display: flex !important;
