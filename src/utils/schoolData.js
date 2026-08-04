@@ -542,6 +542,7 @@ export function getAllStudents(schoolId = getActiveSchoolId()) {
       email: raw.email || existing.email || '',
       role: 'student',
       status: raw.status || existing.status || 'Active',
+      admissionDate: raw.admissionDate || raw.dateAdded || raw.createdAt || existing.admissionDate || new Date().toISOString().split('T')[0],
       schoolId: rawSchoolId || schoolId || '',
     });
   };

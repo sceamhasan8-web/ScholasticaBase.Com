@@ -9,7 +9,7 @@ import PrintContainer from './PrintContainer.jsx';
 import { useViewMode } from '../context/ViewModeContext.jsx';
 import { useLiveSchoolData } from '../utils/schoolData.js';
 import StudentFeePortal from './StudentFeePortal.jsx';
-import { getStudentFeeRecord, evaluateFeeStatus, formatBDT } from '../utils/feeResolver.js';
+import { getStudentFeeRecord, evaluateFeeStatus, formatBDT, subscribeToFeeUpdates } from '../utils/feeResolver.js';
 import AddNoticeModal from './AddNoticeModal.jsx';
 import NotificationBell from './NotificationBell.jsx';
 import ScholasticBaseLogo from './ScholasticBaseLogo.jsx';
@@ -200,16 +200,28 @@ function DetailContent({
   liveTeachers = [],
   liveStudents = [],
   studentProfile = null,
+  onNavigateSection = null,
 }) {
   const [selectedBranch, setSelectedBranch] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [teacherSearchQuery, setTeacherSearchQuery] = useState('');
+  const [, setFeeTick] = useState(0);
 
-  const currentProfile = studentProfile || (liveStudents.find(s => {
+  useEffect(() => {
+    const unsub = subscribeToFeeUpdates(() => setFeeTick(t => t + 1));
+    const handleDataUpdate = () => setFeeTick(t => t + 1);
+    window.addEventListener('schoolDataUpdate', handleDataUpdate);
+    return () => {
+      if (typeof unsub === 'function') unsub();
+      window.removeEventListener('schoolDataUpdate', handleDataUpdate);
+    };
+  }, []);
+
+  const currentProfile = (Array.isArray(liveStudents) ? liveStudents.find(s => {
     const sId = String(s.id || s.userId || s.studentId || '').trim().toLowerCase();
     const uId = String(user?.userId || user?.id || '').trim().toLowerCase();
     return sId && uId && sId === uId;
-  })) || null;
+  }) : null) || studentProfile || user || null;
 
   // 1. Student Info Section
   if (section === 'student_info') {
@@ -352,6 +364,65 @@ function DetailContent({
                 {formatBDT(evalRes?.grandTotalOutstanding || 0)} ({evalRes?.status || 'Paid'})
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* Live Dues Breakdown & Fee Portal Shortcut Card */}
+        <div style={{
+          background: (evalRes?.grandTotalOutstanding || 0) > 0
+            ? 'linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%)'
+            : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+          borderRadius: '18px',
+          padding: '20px 24px',
+          border: (evalRes?.grandTotalOutstanding || 0) > 0 ? '1.5px solid #fecaca' : '1.5px solid #bbf7d0',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.03)',
+          marginBottom: '24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '16px'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ fontSize: '18px' }}>💳</span>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: (evalRes?.grandTotalOutstanding || 0) > 0 ? '#991b1b' : '#166534' }}>
+                Live Outstanding Dues Calculation
+              </h3>
+            </div>
+            <p style={{ margin: 0, fontSize: '13px', color: (evalRes?.grandTotalOutstanding || 0) > 0 ? '#7f1d1d' : '#14532d' }}>
+              Monthly Tuition: <strong>{formatBDT(evalRes?.monthlyDuesAmount || 0)}</strong> ({evalRes?.unpaidMonths || 0} Months) • Other Fees: <strong>{formatBDT(evalRes?.totalOtherDue || 0)}</strong>
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Grand Total Due</div>
+              <div style={{ fontSize: '22px', fontWeight: '900', color: (evalRes?.grandTotalOutstanding || 0) > 0 ? '#dc2626' : '#16a34a' }}>
+                {formatBDT(evalRes?.grandTotalOutstanding || 0)}
+              </div>
+            </div>
+
+            {onNavigateSection && (
+              <button
+                type="button"
+                onClick={() => onNavigateSection('fee_management')}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  background: '#0ea5a4',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontWeight: '700',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(14, 165, 164, 0.3)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Go to Fee Portal →
+              </button>
+            )}
           </div>
         </div>
 
@@ -1205,6 +1276,10 @@ function StudentViewContent() {
                   liveTeachers={liveTeachers}
                   liveStudents={liveStudents}
                   studentProfile={studentProfile}
+                  onNavigateSection={(secId) => {
+                    setActiveTab('home');
+                    setActiveSection(secId);
+                  }}
                 />
               </SectionErrorBoundary>
             </div>

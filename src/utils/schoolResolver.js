@@ -237,6 +237,29 @@ export function sortClasses(classArray, keyOrExtractor) {
 }
 
 /**
+ * Checks if two class names represent the same academic class level/grade.
+ * e.g., "Class 1" and "Class One" -> true, "Class 10" and "Class Ten" -> true
+ * @param {string|object} classA
+ * @param {string|object} classB
+ * @returns {boolean}
+ */
+export function isSameClass(classA, classB) {
+  if (!classA || !classB) return false;
+  const nameA = typeof classA === 'object' ? (classA.className || classA.name || classA.class || '') : classA;
+  const nameB = typeof classB === 'object' ? (classB.className || classB.name || classB.class || '') : classB;
+  const strA = String(nameA).trim().toLowerCase();
+  const strB = String(nameB).trim().toLowerCase();
+  if (strA && strA === strB) return true;
+  const indexA = getClassSortIndex(nameA);
+  const indexB = getClassSortIndex(nameB);
+  if (indexA < 99999 && indexB < 99999) {
+    return indexA === indexB;
+  }
+  return false;
+}
+
+
+/**
  * Normalises a raw class name string and returns the exact branch key:
  *   - 'primary'   : Class 1 to Class 5 (and Nursery, Play, KG, Pre-Primary)
  *   - 'secondary' : Class 6 to Class 10

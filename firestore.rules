@@ -1,103 +1,154 @@
 rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ScholasticBase — Production Security Rules
+// Project : teachers-620a5
+// ═══════════════════════════════════════════════════════════════════════════════
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── Helper Functions ───────────────────────────────────────────────────
+    // Ensures the client has an active Firebase Auth session token
     function signedIn() {
       return request.auth != null;
     }
 
-    // ─── School Registry ────────────────────────────────────────────────────
-    // Public READ is intentional: EIIN lookup during login fires BEFORE a
-    // Firebase Auth token exists (custom localStorage-based auth). We need
-    // anonymous users to resolve their school by EIIN number.
-    // WRITE is restricted to signed-in sessions to prevent spam registrations.
+    // ─── Schools Registry ─────────────────────────────────────────────────────
+    // EIIN lookup at login screen fires before authentication is initialized
     match /schools/{schoolId} {
       allow read: if true;
-      allow write: if signedIn() || true;   // TODO: tighten to signedIn() once custom auth issues Firebase tokens
+      allow write: if signedIn();
     }
-
     match /schools/{schoolId}/{document=**} {
       allow read: if true;
-      allow write: if signedIn() || true;
+      allow write: if signedIn();
     }
 
-    // ─── User Accounts ──────────────────────────────────────────────────────
-    // READ is kept open so the login flow can verify credentials from Firestore
-    // before issuing a session token.
+    // ─── User Accounts ────────────────────────────────────────────────────────
+    // Read & Write: Requires an active Firebase authenticated session
+    // Unauthenticated public access is completely blocked to prevent credential leaks
     match /users/{userId} {
-      allow read: if true;
-      allow create, update, delete: if signedIn() || true;
+      allow read: if signedIn();
+      allow create, update: if signedIn();
+      allow delete: if signedIn();
     }
 
-    // ─── School-Wide Configuration ──────────────────────────────────────────
-    // (school profile, teacher panel data stored under schoolData/)
+    // ─── School-Wide Config ───────────────────────────────────────────────────
     match /schoolData/{docId} {
+      allow read: if true; // School name, logo, EIIN header visible to all UI components
+      allow write: if signedIn();
+    }
+    match /schoolData/{docId}/{document=**} {
       allow read: if true;
-      allow write: if signedIn() || true;
+      allow write: if signedIn();
     }
 
-    // ─── Teacher Profiles ────────────────────────────────────────────────────
+    // ─── Teachers & Students ──────────────────────────────────────────────────
     match /teachers/{teacherId} {
-      allow read: if true;
-      allow write: if signedIn() || true;
+      allow read, write: if signedIn();
+    }
+    match /teachers/{teacherId}/{document=**} {
+      allow read, write: if signedIn();
     }
 
-    // ─── Student Profiles ────────────────────────────────────────────────────
     match /students/{studentId} {
-      allow read: if signedIn() || true;
-      allow write: if signedIn() || true;
+      allow read, write: if signedIn();
+    }
+    match /students/{studentId}/{document=**} {
+      allow read, write: if signedIn();
     }
 
-    // ─── Class Records ───────────────────────────────────────────────────────
+    // ─── Classes & Subjects ───────────────────────────────────────────────────
     match /classes/{classId} {
-      allow read, write: if signedIn() || true;
+      allow read, write: if signedIn();
+    }
+    match /classes/{classId}/{document=**} {
+      allow read, write: if signedIn();
     }
 
-    // ─── Subjects ────────────────────────────────────────────────────────────
     match /subjects/{subjectId} {
-      allow read, write: if signedIn() || true;
+      allow read, write: if signedIn();
+    }
+    match /subjects/{subjectId}/{document=**} {
+      allow read, write: if signedIn();
     }
 
-    // ─── Group Subjects (per-class subject configuration) ────────────────────
-    match /groupSubjects/{groupSubjectId} {
-      allow read, write: if signedIn() || true;
+    match /groupSubjects/{docId} {
+      allow read, write: if signedIn();
+    }
+    match /groupSubjects/{docId}/{document=**} {
+      allow read, write: if signedIn();
     }
 
-    // ─── Exams ───────────────────────────────────────────────────────────────
+    // ─── Exam Sessions & Results ──────────────────────────────────────────────
     match /exams/{examId} {
-      allow read, write: if signedIn() || true;
+      allow read, write: if signedIn();
+    }
+    match /exams/{examId}/{document=**} {
+      allow read, write: if signedIn();
     }
 
-    // ─── Exam Results ────────────────────────────────────────────────────────
     match /results/{resultId} {
-      allow read, write: if signedIn() || true;
+      allow read, write: if signedIn();
+    }
+    match /results/{resultId}/{document=**} {
+      allow read, write: if signedIn();
     }
 
-    // ─── Grade Records ───────────────────────────────────────────────────────
+    // ─── Grades & Rank Records ────────────────────────────────────────────────
     match /grades/{gradeId} {
-      allow read, write: if signedIn() || true;
+      allow read, write: if signedIn();
+    }
+    match /grades/{gradeId}/{document=**} {
+      allow read, write: if signedIn();
     }
 
-    // ─── Class Rank / Position Records ──────────────────────────────────────
     match /positions/{positionId} {
-      allow read, write: if signedIn() || true;
+      allow read, write: if signedIn();
+    }
+    match /positions/{positionId}/{document=**} {
+      allow read, write: if signedIn();
     }
 
-    // ─── Dynamic Multi-Tenant Isolated Collections ───────────────────────────
-    // These are generated at runtime as: school_{schoolCode}_{collection}
-    // (e.g. school_progga-130743_students). We can't enumerate them in rules,
-    // so the wildcard catch-all below covers them.
-    // TODO: Once custom auth is migrated to Firebase Auth tokens, tighten to:
-    //   allow read, write: if signedIn();
-    match /{collectionName}/{docId} {
-      allow read, write: if signedIn() || true;
+    // ─── Fee Collections & Approvals ──────────────────────────────────────────
+    match /feeStructures/{docId} {
+      allow read, write: if signedIn();
+    }
+    match /feeStructures/{docId}/{document=**} {
+      allow read, write: if signedIn();
     }
 
-    // ─── Global Fallback ─────────────────────────────────────────────────────
-    // Deny all uncovered paths by default (good security hygiene).
-    match /{document=**} {
-      allow read, write: if signedIn() || true;
+    match /feePayments/{docId} {
+      allow read, write: if signedIn();
+    }
+    match /feePayments/{docId}/{document=**} {
+      allow read, write: if signedIn();
+    }
+
+    match /feeApprovals/{docId} {
+      allow read, write: if signedIn();
+    }
+    match /feeApprovals/{docId}/{document=**} {
+      allow read, write: if signedIn();
+    }
+
+    match /feeConfigs/{docId} {
+      allow read, write: if signedIn();
+    }
+    match /feeConfigs/{docId}/{document=**} {
+      allow read, write: if signedIn();
+    }
+
+    // ─── Dynamic Multi-Tenant School Collections & Subcollections ───────────
+    match /{dynamicCollection}/{docId} {
+      allow read, write: if signedIn();
+    }
+    match /{dynamicCollection}/{docId}/{document=**} {
+      allow read, write: if signedIn();
     }
   }
 }
+
+
+
+

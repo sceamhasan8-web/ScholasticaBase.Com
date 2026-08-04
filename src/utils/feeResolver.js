@@ -237,49 +237,134 @@ export function getAllFeeRecords() {
 /**
  * Get or initialize a student's fee record based on class Fee Master templates and class monthly rate.
  */
-export function getStudentFeeRecord(studentId, classNumOrName = '', branchKeyOverride = null) {
+/**
+ * Calculates prorated tuition fee for student's admission month based on admission date.
+ * If student joined mid-month (e.g. 15th), calculates days remaining to end of month.
+ * Example: Class Fee 1200 BDT, Joined 15th of 30-day month -> 15 days = 600 BDT.
+ */
+export function calculateProratedMonthlyFee(admissionDate, monthlyFee) {
+  const fee = Math.max(0, Number(monthlyFee) || 0);
+  if (!fee || !admissionDate) {
+    return { proratedFee: fee, isProrated: false, remainingDays: 30, totalDays: 30, joiningDay: 1 };
+  }
+
+  const dateObj = new Date(admissionDate);
+  if (isNaN(dateObj.getTime())) {
+    return { proratedFee: fee, isProrated: false, remainingDays: 30, totalDays: 30, joiningDay: 1 };
+  }
+
+  const year = dateObj.getFullYear();
+  const month = dateObj.getMonth();
+  const joiningDay = dateObj.getDate();
+
+  // Total days in admission month (e.g. 30, 31, 28)
+  const totalDays = new Date(year, month + 1, 0).getDate() || 30;
+
+  // Full month if joined on 1st day of month
+  if (joiningDay <= 1) {
+    return { proratedFee: fee, isProrated: false, remainingDays: totalDays, totalDays, joiningDay: 1 };
+  }
+
+  // Days remaining in admission month from joiningDay to end of month
+  const remainingDays = Math.max(1, totalDays - joiningDay);
+  const dailyRate = fee / totalDays;
+  const proratedFee = Math.round(dailyRate * remainingDays);
+
+  const formattedDateStr = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  return {
+    proratedFee,
+    isProrated: true,
+    remainingDays,
+    totalDays,
+    joiningDay,
+    dailyRate: Math.round(dailyRate),
+    formattedDateStr,
+  };
+}
+
+/**
+ * Calculates total elapsed billing cycles (months) from admission date to target date.
+ * Example: Admitted Aug 2026 -> Aug=1, Sep=2, Oct=3...
+ */
+export function getElapsedBillingMonths(admissionDate, targetDate = new Date()) {
+  if (!admissionDate) return 1;
+  const start = new Date(admissionDate);
+  const now = new Date(targetDate);
+  if (isNaN(start.getTime()) || isNaN(now.getTime())) return 1;
+
+  const startYear = start.getFullYear();
+  const startMonth = start.getMonth(); // 0-indexed
+
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0-indexed
+
+  const monthsDiff = (currentYear - startYear) * 12 + (currentMonth - startMonth);
+  return Math.max(1, monthsDiff + 1);
+}
+
+/**
+ * Get or initialize a student's fee record based on class Fee Master templates and class monthly rate.
+ */
+export function getStudentFeeRecord(studentId, classNumOrName = '', branchKeyOverride = null, studentInfo = null) {
   if (!studentId) return null;
   const normalizedId = String(studentId).trim();
   const feeDataMap = getAllFeeRecords();
   const defaultClassRate = getClassMonthlyFee(classNumOrName);
-  
+
+  const admissionDate = feeDataMap[normalizedId]?.admissionDate || studentInfo?.admissionDate || studentInfo?.dateAdded || studentInfo?.createdAt || null;
+  const totalElapsedMonths = getElapsedBillingMonths(admissionDate);
+
   if (feeDataMap[normalizedId]) {
     const rec = feeDataMap[normalizedId];
-    const unpaidMonths = rec.unpaidMonths !== undefined ? Number(rec.unpaidMonths) : (rec.monthlyDuesCount !== undefined ? Number(rec.monthlyDuesCount) : 0);
     const classMonthlyFee = rec.classMonthlyFee !== undefined ? Number(rec.classMonthlyFee) : (rec.monthlyRate !== undefined ? Number(rec.monthlyRate) : defaultClassRate);
     const otherFees = Array.isArray(rec.otherFees) ? rec.otherFees : (Array.isArray(rec.othersDues) ? rec.othersDues : []);
+    const paidMonthsCount = Number(rec.paidMonthsCount || rec.monthsPaid || 0);
+
+    let unpaidMonths;
+    if (rec.isManualOverride && rec.unpaidMonths !== undefined) {
+      unpaidMonths = Number(rec.unpaidMonths);
+    } else {
+      unpaidMonths = Math.max(0, totalElapsedMonths - paidMonthsCount);
+    }
 
     return {
       ...rec,
       studentId: normalizedId,
       unpaidMonths: Math.max(0, unpaidMonths),
       monthlyDuesCount: Math.max(0, unpaidMonths),
+      paidMonthsCount,
+      totalElapsedMonths,
       classMonthlyFee: Math.max(0, classMonthlyFee),
       monthlyRate: Math.max(0, classMonthlyFee),
       otherFees,
       othersDues: otherFees,
+      admissionDate: admissionDate || rec.admissionDate,
     };
   }
 
   return {
     studentId: normalizedId,
-    unpaidMonths: 0,
-    monthlyDuesCount: 0,
+    unpaidMonths: totalElapsedMonths,
+    monthlyDuesCount: totalElapsedMonths,
+    paidMonthsCount: 0,
+    totalElapsedMonths,
     classMonthlyFee: defaultClassRate,
     monthlyRate: defaultClassRate,
     otherFees: [],
     othersDues: [],
+    admissionDate: admissionDate || new Date().toISOString().split('T')[0],
     updatedAt: new Date().toISOString(),
   };
 }
 
 /**
  * Evaluates dynamic fee status and calculates ledger breakdown:
- *   - Total Monthly Due = unpaidMonths * classMonthlyFee
+ *   - Total Monthly Due = unpaidMonths * classMonthlyFee (prorated for admission month if mid-month)
  *   - Total Other Due = sum of custom otherFees amounts
  *   - Grand Total Outstanding = Total Monthly Due + Total Other Due
  */
-export function evaluateFeeStatus(feeRecord, className = '') {
+export function evaluateFeeStatus(feeRecord, className = '', studentInfo = null) {
   if (!feeRecord) {
     const fallbackRate = getClassMonthlyFee(className);
     return {
@@ -296,12 +381,25 @@ export function evaluateFeeStatus(feeRecord, className = '') {
       othersDuesAmount: 0,
       grandTotalOutstanding: 0,
       totalPayable: 0,
+      prorationInfo: null,
+      admissionDate: null,
     };
   }
 
   const unpaidMonths = Math.max(0, Number(feeRecord.unpaidMonths ?? feeRecord.monthlyDuesCount ?? 0));
   const classMonthlyFee = Math.max(0, Number(feeRecord.classMonthlyFee ?? feeRecord.monthlyRate ?? getClassMonthlyFee(className) ?? 1000));
-  const totalMonthlyDue = unpaidMonths * classMonthlyFee;
+  const admissionDate = feeRecord.admissionDate || studentInfo?.admissionDate || studentInfo?.dateAdded || studentInfo?.createdAt;
+  
+  const prorationInfo = calculateProratedMonthlyFee(admissionDate, classMonthlyFee);
+
+  let totalMonthlyDue = 0;
+  if (unpaidMonths === 1 && prorationInfo.isProrated) {
+    totalMonthlyDue = prorationInfo.proratedFee;
+  } else if (unpaidMonths > 1 && prorationInfo.isProrated) {
+    totalMonthlyDue = prorationInfo.proratedFee + (unpaidMonths - 1) * classMonthlyFee;
+  } else {
+    totalMonthlyDue = unpaidMonths * classMonthlyFee;
+  }
 
   const rawOtherFees = Array.isArray(feeRecord.otherFees) ? feeRecord.otherFees : (Array.isArray(feeRecord.othersDues) ? feeRecord.othersDues : []);
   const otherFees = rawOtherFees.map(item => ({
@@ -321,7 +419,7 @@ export function evaluateFeeStatus(feeRecord, className = '') {
     status = FEE_STATUS_TYPES.PAID;
   } else if (unpaidMonths > 1) {
     status = FEE_STATUS_TYPES.OVERDUE;
-  } else if (unpaidMonths === 1) {
+  } else if (unpaidMonths === 1 || totalMonthlyDue > 0) {
     status = FEE_STATUS_TYPES.DUE;
   } else if (unpaidMonths === 0 && totalOtherDue > 0) {
     status = FEE_STATUS_TYPES.OTHERS_DUE;
@@ -341,6 +439,8 @@ export function evaluateFeeStatus(feeRecord, className = '') {
     othersDuesAmount: totalOtherDue,
     grandTotalOutstanding,
     totalPayable: grandTotalOutstanding,
+    prorationInfo,
+    admissionDate: admissionDate || null,
   };
 }
 
@@ -484,7 +584,7 @@ export function runAutomatedDuesGeneration({
     if (!stId) return;
 
     const stBranch = getBranchKeyByClass(st.className) || 'secondary';
-    const template = templates[stBranch] || DEFAULT_FEE_TEMPLATES.secondary;
+    const template = getClassFeeTemplate(stBranch, st.className);
     const currentRecord = getStudentFeeRecord(stId, st.className, stBranch);
 
     const newUnpaidMonths = (Number(currentRecord.unpaidMonths) || 0) + Number(incrementMonths);
@@ -653,17 +753,21 @@ export function approveTransaction(txnId, approverName = 'Principal') {
     updatedOtherFees = nextOthers;
   }
 
+  let monthsCleared = 0;
   if (remainingToDeduct > 0 && currentEvaluation.classMonthlyFee > 0) {
-    const monthsCleared = Math.floor(remainingToDeduct / currentEvaluation.classMonthlyFee);
+    monthsCleared = Math.floor(remainingToDeduct / currentEvaluation.classMonthlyFee);
     if (monthsCleared > 0) {
       updatedUnpaidMonths = Math.max(0, updatedUnpaidMonths - monthsCleared);
       remainingToDeduct -= (monthsCleared * currentEvaluation.classMonthlyFee);
     }
   }
 
+  const newPaidMonthsCount = Math.max(0, (currentRecord.paidMonthsCount || 0) + monthsCleared);
+
   saveFeeRecord(studentId, {
     unpaidMonths: updatedUnpaidMonths,
     monthlyDuesCount: updatedUnpaidMonths,
+    paidMonthsCount: newPaidMonthsCount,
     otherFees: updatedOtherFees,
     othersDues: updatedOtherFees,
   });
@@ -758,15 +862,19 @@ export function processStudentPayment(studentId, {
     updatedOtherFees = nextOthers;
   }
 
+  let monthsCleared = 0;
   if (clearMonthlyCount !== null && !isNaN(clearMonthlyCount)) {
-    updatedUnpaidMonths = Math.max(0, updatedUnpaidMonths - Number(clearMonthlyCount));
+    monthsCleared = Number(clearMonthlyCount);
+    updatedUnpaidMonths = Math.max(0, updatedUnpaidMonths - monthsCleared);
   } else if (remainingToDeduct > 0 && currentEvaluation.classMonthlyFee > 0) {
-    const monthsCleared = Math.floor(remainingToDeduct / currentEvaluation.classMonthlyFee);
+    monthsCleared = Math.floor(remainingToDeduct / currentEvaluation.classMonthlyFee);
     if (monthsCleared > 0) {
       updatedUnpaidMonths = Math.max(0, updatedUnpaidMonths - monthsCleared);
       remainingToDeduct -= (monthsCleared * currentEvaluation.classMonthlyFee);
     }
   }
+
+  const newPaidMonthsCount = Math.max(0, (currentRecord.paidMonthsCount || 0) + monthsCleared);
 
   const txnId = `TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
   const timestamp = new Date().toISOString();
@@ -788,6 +896,7 @@ export function processStudentPayment(studentId, {
   const savedRecord = saveFeeRecord(studentId, {
     unpaidMonths: updatedUnpaidMonths,
     monthlyDuesCount: updatedUnpaidMonths,
+    paidMonthsCount: newPaidMonthsCount,
     otherFees: updatedOtherFees,
     othersDues: updatedOtherFees,
   });

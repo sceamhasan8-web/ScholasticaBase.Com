@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { SCHOOL_BRANCHES, getBranchKeyByClass, sortClasses } from '../utils/schoolResolver.js';
+import { SCHOOL_BRANCHES, getBranchKeyByClass, sortClasses, isSameClass } from '../utils/schoolResolver.js';
 import { useLiveSchoolData } from '../utils/schoolData.js';
 import {
   getStudentFeeRecord,
@@ -17,6 +17,9 @@ import {
   saveFeeTemplates,
   runAutomatedDuesGeneration,
   getClassMonthlyFee,
+  saveClassMonthlyFee,
+  getClassFeeTemplate,
+  DEFAULT_FEE_TEMPLATES,
   getPendingTransactions,
 } from '../utils/feeResolver.js';
 import StudentFeeConfigModal from './StudentFeeConfigModal.jsx';
@@ -49,13 +52,13 @@ const TrashIcon = () => (
 );
 
 const ReceiptIcon = () => (
-  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
     <path d="M14 2H6a2 2 0 0 0-2 2v16l4-2 4 2 4-2 4 2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
   </svg>
 );
 
 const CreditCardIcon = () => (
-  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
     <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
   </svg>
 );
@@ -67,7 +70,7 @@ const CloseIcon = () => (
 );
 
 const SettingsIcon = () => (
-  <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+  <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </svg>
 );
@@ -124,6 +127,7 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
 
   // Fee Master Template Editor State
   const [selectedTemplateBranch, setSelectedTemplateBranch] = useState('primary');
+  const [selectedTemplateClass, setSelectedTemplateClass] = useState('ALL');
   const [editingTemplate, setEditingTemplate] = useState(feeTemplates.primary);
   const [newHeadLabel, setNewHeadLabel] = useState('');
   const [newHeadAmount, setNewHeadAmount] = useState('');
@@ -148,21 +152,36 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
     return () => unsub();
   }, []);
 
-  // Sync editingTemplate when selectedTemplateBranch changes
+  // Sync editingTemplate when selectedTemplateBranch or selectedTemplateClass changes
   useEffect(() => {
-    setEditingTemplate(feeTemplates[selectedTemplateBranch] || feeTemplates.primary);
-  }, [selectedTemplateBranch, feeTemplates]);
+    if (selectedTemplateClass === 'ALL') {
+      setEditingTemplate(feeTemplates[selectedTemplateBranch] || DEFAULT_FEE_TEMPLATES[selectedTemplateBranch] || feeTemplates.primary);
+    } else {
+      const classTpl = getClassFeeTemplate(selectedTemplateBranch, selectedTemplateClass);
+      const classRate = getClassMonthlyFee(selectedTemplateClass);
+      setEditingTemplate({
+        ...classTpl,
+        monthlyRate: classRate,
+      });
+    }
+  }, [selectedTemplateBranch, selectedTemplateClass, feeTemplates]);
 
-  // Compute enriched student fee records
+  // Compute enriched student fee records directly from live student info
   const enrichedStudents = useMemo(() => {
     const safeStudents = Array.isArray(students) ? students : [];
     return safeStudents.map(student => {
       if (!student) return null;
-      const branchKey = getBranchKeyByClass(student.className) || 'secondary';
-      const record = getStudentFeeRecord(student.id || student.userId, student.className, branchKey);
-      const evalResult = evaluateFeeStatus(record);
+      const sId = String(student.id || student.userId || student.studentId || '').trim();
+      if (!sId) return null;
+      const className = String(student.className || (student.classNum ? `Class ${student.classNum}` : '') || 'Class One').trim();
+      const branchKey = getBranchKeyByClass(className) || 'secondary';
+      const record = getStudentFeeRecord(sId, className, branchKey, student);
+      const evalResult = evaluateFeeStatus(record, className, student);
       return {
         ...student,
+        id: sId,
+        userId: sId,
+        className,
         branchKey,
         feeRecord: record,
         feeEval: evalResult,
@@ -225,16 +244,46 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
     };
   };
 
-  // Classes for selected branch
+  // Classes for selected branch dynamically merging base branch classes + student enrolled classes
   const availableClassesInBranch = useMemo(() => {
     if (!selectedBranchKey || !SCHOOL_BRANCHES[selectedBranchKey]) return [];
-    return SCHOOL_BRANCHES[selectedBranchKey].classes || [];
-  }, [selectedBranchKey]);
+    const defaultClasses = SCHOOL_BRANCHES[selectedBranchKey].classes || [];
+    const dynamicClasses = new Set(defaultClasses);
 
-  // Filtered Students for Level 3
+    (enrichedStudents || []).forEach(st => {
+      if (st && st.branchKey === selectedBranchKey && st.className) {
+        const matchedDefault = defaultClasses.find(dc => isSameClass(dc, st.className));
+        if (!matchedDefault) {
+          dynamicClasses.add(st.className);
+        }
+      }
+    });
+
+    return sortClasses(Array.from(dynamicClasses));
+  }, [selectedBranchKey, enrichedStudents]);
+
+  // Classes for Fee Master Template branch selection
+  const classesInSelectedTemplateBranch = useMemo(() => {
+    if (!selectedTemplateBranch || !SCHOOL_BRANCHES[selectedTemplateBranch]) return [];
+    const defaultClasses = SCHOOL_BRANCHES[selectedTemplateBranch].classes || [];
+    const dynamicClasses = new Set(defaultClasses);
+
+    (enrichedStudents || []).forEach(st => {
+      if (st && st.branchKey === selectedTemplateBranch && st.className) {
+        const matchedDefault = defaultClasses.find(dc => isSameClass(dc, st.className));
+        if (!matchedDefault) {
+          dynamicClasses.add(st.className);
+        }
+      }
+    });
+
+    return sortClasses(Array.from(dynamicClasses));
+  }, [selectedTemplateBranch, enrichedStudents]);
+
+  // Filtered Students for Level 3 Roster
   const level3Students = useMemo(() => {
     if (!selectedClassName) return [];
-    let list = (enrichedStudents || []).filter(st => st && st.className === selectedClassName);
+    let list = (enrichedStudents || []).filter(st => st && isSameClass(st.className, selectedClassName));
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -401,13 +450,35 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
     }));
   };
 
+  const handleTemplateBranchSelect = (bKey) => {
+    setSelectedTemplateBranch(bKey);
+    setSelectedTemplateClass('ALL');
+  };
+
   const handleSaveMasterTemplate = () => {
-    const updated = {
-      ...feeTemplates,
-      [selectedTemplateBranch]: editingTemplate,
-    };
-    saveFeeTemplates(updated);
-    setMasterSavedMsg(`✓ Fee Master Template for ${SCHOOL_BRANCHES[selectedTemplateBranch]?.shortName} saved successfully!`);
+    if (selectedTemplateClass === 'ALL') {
+      const updated = {
+        ...feeTemplates,
+        [selectedTemplateBranch]: editingTemplate,
+      };
+      saveFeeTemplates(updated);
+
+      classesInSelectedTemplateBranch.forEach(clsName => {
+        saveClassMonthlyFee(clsName, editingTemplate.monthlyRate);
+      });
+
+      setMasterSavedMsg(`✓ Fee Master Template for All Classes (${SCHOOL_BRANCHES[selectedTemplateBranch]?.shortName}) saved successfully!`);
+    } else {
+      saveClassMonthlyFee(selectedTemplateClass, editingTemplate.monthlyRate);
+
+      const updated = {
+        ...feeTemplates,
+        [`class_${selectedTemplateClass}`]: editingTemplate,
+      };
+      saveFeeTemplates(updated);
+
+      setMasterSavedMsg(`✓ Fee Master Template & Monthly Rate for ${selectedTemplateClass} saved successfully!`);
+    }
     setTimeout(() => setMasterSavedMsg(null), 3000);
   };
 
@@ -687,9 +758,9 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 210px), 1fr))', gap: 10 }}>
                 {availableClassesInBranch.map(clsName => {
-                  const clsStudents = enrichedStudents.filter(st => st.className === clsName);
-                  const totalDues = clsStudents.reduce((sum, st) => sum + st.feeEval.totalPayable, 0);
-                  const overdueCount = clsStudents.filter(st => st.feeEval.status === FEE_STATUS_TYPES.OVERDUE).length;
+                  const clsStudents = enrichedStudents.filter(st => isSameClass(st.className, clsName));
+                  const totalDues = clsStudents.reduce((sum, st) => sum + (st.feeEval?.totalPayable || 0), 0);
+                  const overdueCount = clsStudents.filter(st => st.feeEval?.status === FEE_STATUS_TYPES.OVERDUE).length;
 
                   return (
                     <div
@@ -812,12 +883,33 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
                             <td style={{ padding: '14px 18px' }}>
                               <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14 }}>{student.name || 'Unnamed Student'}</div>
                               <div style={{ fontSize: 12, color: '#64748b' }}>Roll: #{student.roll || 'N/A'} · Class: {student.className}</div>
+                              {student.admissionDate && (
+                                <div style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <span>📅 Admitted:</span> {evalRes.prorationInfo?.formattedDateStr || student.admissionDate}
+                                </div>
+                              )}
                             </td>
 
                             {/* Monthly Dues */}
                             <td style={{ padding: '14px 18px' }}>
-                              <div style={{ fontSize: 13, fontWeight: 600 }}>{evalRes.monthlyDuesCount} Months</div>
-                              <div style={{ fontSize: 11, color: '#64748b' }}>@ {formatBDT(evalRes.monthlyRate)}/mo ({formatBDT(evalRes.monthlyDuesAmount)})</div>
+                              {evalRes.prorationInfo?.isProrated ? (
+                                <div>
+                                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1d4ed8' }}>
+                                    {formatBDT(evalRes.monthlyDuesAmount)}
+                                  </div>
+                                  <div style={{ fontSize: 11, color: '#2563eb', fontWeight: 600 }}>
+                                    Prorated ({evalRes.prorationInfo.remainingDays} days from {evalRes.prorationInfo.joiningDay}th)
+                                  </div>
+                                  <div style={{ fontSize: 10, color: '#64748b' }}>
+                                    Full Rate: {formatBDT(evalRes.monthlyRate)}/mo
+                                  </div>
+                                </div>
+                              ) : (
+                                <div>
+                                  <div style={{ fontSize: 13, fontWeight: 600 }}>{evalRes.monthlyDuesCount} Months</div>
+                                  <div style={{ fontSize: 11, color: '#64748b' }}>@ {formatBDT(evalRes.monthlyRate)}/mo ({formatBDT(evalRes.monthlyDuesAmount)})</div>
+                                </div>
+                              )}
                             </td>
 
                             {/* Others Dues */}
@@ -952,14 +1044,14 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
           )}
 
           {/* Branch Switcher Tabs for Master Template */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
             {Object.keys(SCHOOL_BRANCHES).map(bKey => {
               const b = SCHOOL_BRANCHES[bKey];
               const isSel = selectedTemplateBranch === bKey;
               return (
                 <button
                   key={bKey}
-                  onClick={() => setSelectedTemplateBranch(bKey)}
+                  onClick={() => handleTemplateBranchSelect(bKey)}
                   style={{
                     padding: '10px 18px',
                     borderRadius: 10,
@@ -981,13 +1073,70 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
             })}
           </div>
 
+          {/* Class Switcher Selector for Master Template */}
+          <div style={{ background: '#f1f5f9', padding: '14px 16px', borderRadius: 12, marginBottom: 20, border: '1px solid #cbd5e1' }}>
+            <label style={{ fontSize: 13, fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+              📚 Select Class for Fee Setup ({SCHOOL_BRANCHES[selectedTemplateBranch]?.shortName}):
+            </label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setSelectedTemplateClass('ALL')}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: 8,
+                  border: selectedTemplateClass === 'ALL' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                  background: selectedTemplateClass === 'ALL' ? '#2563eb' : '#ffffff',
+                  color: selectedTemplateClass === 'ALL' ? '#ffffff' : '#475569',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  boxShadow: selectedTemplateClass === 'ALL' ? '0 2px 6px rgba(37,99,235,0.25)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                🌐 All Classes (Branch Default)
+              </button>
+              {classesInSelectedTemplateBranch.map(clsName => {
+                const isSelected = selectedTemplateClass === clsName;
+                return (
+                  <button
+                    key={clsName}
+                    type="button"
+                    onClick={() => setSelectedTemplateClass(clsName)}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 8,
+                      border: isSelected ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                      background: isSelected ? '#2563eb' : '#ffffff',
+                      color: isSelected ? '#ffffff' : '#334155',
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      boxShadow: isSelected ? '0 2px 6px rgba(37,99,235,0.25)' : 'none',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    📖 {clsName}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Master Form Card */}
           <div style={{ background: '#f8fafc', borderRadius: 14, padding: 20, border: '1px solid #cbd5e1', marginBottom: 20 }}>
             <h3 style={{ fontSize: 16, fontWeight: 800, margin: '0 0 14px 0', color: '#0f172a' }}>
-              Monthly Tuition Rate Template ({SCHOOL_BRANCHES[selectedTemplateBranch]?.name})
+              {selectedTemplateClass === 'ALL'
+                ? `Monthly Tuition Rate & Fee Template (All Classes — ${SCHOOL_BRANCHES[selectedTemplateBranch]?.name})`
+                : `Monthly Tuition Rate & Fee Template (${selectedTemplateClass} — ${SCHOOL_BRANCHES[selectedTemplateBranch]?.name})`}
             </h3>
-            <div style={{ maxWidth: 320, marginBottom: 20 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 6 }}>Standard Monthly Rate (BDT ৳)</label>
+            <div style={{ maxWidth: 360, marginBottom: 20 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#475569', display: 'block', marginBottom: 6 }}>
+                {selectedTemplateClass === 'ALL'
+                  ? `Branch Standard Monthly Rate (BDT ৳)`
+                  : `Monthly Tuition Rate for ${selectedTemplateClass} (BDT ৳)`}
+              </label>
               <input
                 type="number"
                 min="0"

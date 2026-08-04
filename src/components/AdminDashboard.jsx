@@ -15,6 +15,7 @@ import NotificationBell from './NotificationBell.jsx';
 import ScholasticBaseLogo from './ScholasticBaseLogo.jsx';
 import SafeImage from './SafeImage.jsx';
 import { getNotices, addNotice, deleteNotices as deleteNoticesStorage, subscribeToNoticeUpdates, normalizeRoles } from '../utils/noticeStorage.js';
+import { convertToWebP } from '../utils/imageOptimizer.js';
 import { storage } from '../firebase/firebase.js';
 import SectionErrorBoundary from './SectionErrorBoundary.jsx';
 
@@ -156,12 +157,18 @@ function AddTeacherModal({ onClose, onAdd }) {
   const [form, setForm] = useState({ name: '', subject: '', email: '', phone: '' });
   const [profilePicPreview, setProfilePicPreview] = useState(null);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setProfilePicPreview(ev.target.result);
-    reader.readAsDataURL(file);
+    try {
+      const optimized = await convertToWebP(file, { maxWidth: 600, maxHeight: 600, quality: 0.8 });
+      setProfilePicPreview(optimized.dataUrl);
+    } catch (err) {
+      console.error('WebP conversion failed, falling back:', err);
+      const reader = new FileReader();
+      reader.onload = (ev) => setProfilePicPreview(ev.target.result);
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = (e) => {
@@ -221,15 +228,21 @@ function AddTeacherModal({ onClose, onAdd }) {
 
 /* Add Student Modal */
 function AddStudentModal({ onClose, onAdd, classNum }) {
-  const [form, setForm] = useState({ name: '', age: '', birthday: '', fatherName: '', motherName: '' });
+  const [form, setForm] = useState({ name: '', age: '', birthday: '', fatherName: '', motherName: '', admissionDate: new Date().toISOString().split('T')[0] });
   const [profilePicPreview, setProfilePicPreview] = useState(null);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setProfilePicPreview(ev.target.result);
-    reader.readAsDataURL(file);
+    try {
+      const optimized = await convertToWebP(file, { maxWidth: 600, maxHeight: 600, quality: 0.8 });
+      setProfilePicPreview(optimized.dataUrl);
+    } catch (err) {
+      console.error('WebP conversion failed, falling back:', err);
+      const reader = new FileReader();
+      reader.onload = (ev) => setProfilePicPreview(ev.target.result);
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = (e) => {
@@ -277,6 +290,10 @@ function AddStudentModal({ onClose, onAdd, classNum }) {
               <input className="tp-form-input" type="date" value={form.birthday} onChange={e => setForm({ ...form, birthday: e.target.value })} required />
             </div>
             <div className="tp-form-group">
+              <label className="tp-form-label">Admission Date *</label>
+              <input className="tp-form-input" type="date" value={form.admissionDate} onChange={e => setForm({ ...form, admissionDate: e.target.value })} required />
+            </div>
+            <div className="tp-form-group">
               <label className="tp-form-label">Father's Name *</label>
               <input className="tp-form-input" type="text" placeholder="Father's full name" value={form.fatherName} onChange={e => setForm({ ...form, fatherName: e.target.value })} required />
             </div>
@@ -309,12 +326,18 @@ function EditStudentModal({ student, classColor, onClose, onSave }) {
   });
   const [profilePicPreview, setProfilePicPreview] = useState(student.profilePic || null);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setProfilePicPreview(ev.target.result);
-    reader.readAsDataURL(file);
+    try {
+      const optimized = await convertToWebP(file, { maxWidth: 600, maxHeight: 600, quality: 0.8 });
+      setProfilePicPreview(optimized.dataUrl);
+    } catch (err) {
+      console.error('WebP conversion failed, falling back:', err);
+      const reader = new FileReader();
+      reader.onload = (ev) => setProfilePicPreview(ev.target.result);
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = (e) => {
@@ -1032,13 +1055,19 @@ export default function AdminDashboard() {
     }));
   };
 
-  const handleLogoChange = (e) => {
+  const handleLogoChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setLogoFile(file);
-    const objectUrl = URL.createObjectURL(file);
-    setProfileForm(prev => ({ ...prev, logo: objectUrl }));
-    setProfileStatus('Logo selected. Save changes to publish it.');
+    try {
+      const optimized = await convertToWebP(file, { maxWidth: 500, maxHeight: 500, quality: 0.85 });
+      setProfileForm(prev => ({ ...prev, logo: optimized.dataUrl }));
+      setProfileStatus('Logo optimized to WebP format. Save changes to publish.');
+    } catch (err) {
+      const objectUrl = URL.createObjectURL(file);
+      setProfileForm(prev => ({ ...prev, logo: objectUrl }));
+      setProfileStatus('Logo selected. Save changes to publish it.');
+    }
   };
 
   const handleProfileSubmit = async (e) => {
@@ -1049,13 +1078,18 @@ export default function AdminDashboard() {
     try {
       let logoUrl = profileForm.logo;
       if (logoFile) {
-        setProfileStatus('Processing logo image...');
-        logoUrl = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (ev) => resolve(ev.target.result);
-          reader.onerror = () => resolve(profileForm.logo);
-          reader.readAsDataURL(logoFile);
-        });
+        setProfileStatus('Converting logo to WebP format...');
+        try {
+          const optimized = await convertToWebP(logoFile, { maxWidth: 500, maxHeight: 500, quality: 0.85 });
+          logoUrl = optimized.dataUrl;
+        } catch (err) {
+          logoUrl = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (ev) => resolve(ev.target.result);
+            reader.onerror = () => resolve(profileForm.logo);
+            reader.readAsDataURL(logoFile);
+          });
+        }
         setProfileForm(prev => ({ ...prev, logo: logoUrl }));
       }
 
@@ -1309,26 +1343,50 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="tp-class-grid" style={{ padding: 0 }}>
-              <div className="tp-class-card" style={{ '--cls-color': '#38b26e' }}>
+              <div
+                className="tp-class-card"
+                onClick={() => handleTabClick('teachers')}
+                style={{ '--cls-color': '#38b26e', cursor: 'pointer' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleTabClick('teachers'); } }}
+              >
                 <div className="tp-class-card-num" style={{ background: '#38b26e' }}>👨‍🏫</div>
                 <div className="tp-class-card-body">
                   <p className="tp-class-card-title">Total Teachers</p>
                   <p className="tp-class-card-count">{totalTeachers} Registered</p>
                 </div>
+                <div className="tp-class-card-arrow"><ChevronRight /></div>
               </div>
-              <div className="tp-class-card" style={{ '--cls-color': '#2563eb' }}>
+              <div
+                className="tp-class-card"
+                onClick={() => handleTabClick('students')}
+                style={{ '--cls-color': '#2563eb', cursor: 'pointer' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleTabClick('students'); } }}
+              >
                 <div className="tp-class-card-num" style={{ background: '#2563eb' }}>🎓</div>
                 <div className="tp-class-card-body">
                   <p className="tp-class-card-title">Total Students</p>
                   <p className="tp-class-card-count">{totalStudents} Active</p>
                 </div>
+                <div className="tp-class-card-arrow"><ChevronRight /></div>
               </div>
-              <div className="tp-class-card" style={{ '--cls-color': '#8b5cf6' }}>
+              <div
+                className="tp-class-card"
+                onClick={() => handleTabClick('exams')}
+                style={{ '--cls-color': '#8b5cf6', cursor: 'pointer' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleTabClick('exams'); } }}
+              >
                 <div className="tp-class-card-num" style={{ background: '#8b5cf6' }}>📅</div>
                 <div className="tp-class-card-body">
                   <p className="tp-class-card-title">Exams Scheduled</p>
                   <p className="tp-class-card-count">{totalExams} Schedules</p>
                 </div>
+                <div className="tp-class-card-arrow"><ChevronRight /></div>
               </div>
             </div>
           </div>
@@ -1589,7 +1647,7 @@ export default function AdminDashboard() {
 
         {/* Tab 3: Teachers */}
         {activeTab === 'teachers' && (
-          <div style={{ padding: '24px 20px' }}>
+          <div style={{ padding: '20px 16px' }}>
             <div className="tp-roster-toolbar" style={{ padding: '0 0 16px' }}>
               <span className="tp-roster-badge" style={{ background: '#e8f5e9', color: '#2e7d32', borderColor: '#a5d6a7' }}>
                 👨‍🏫 {teachers.length} Teachers
@@ -1599,24 +1657,49 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            <div className="tp-student-roster-grid" style={{ padding: 0 }}>
+            <div className="tp-teacher-card-grid">
               {teachers.map((t, idx) => (
-                <div key={t?.email || `teacher-card-${idx}`} className={`tp-student-roster-card ${deleteMode && selectedIds.has(t?.email) ? 'tp-card-selected' : ''}`} onClick={deleteMode && t?.email ? () => toggleSelect(t.email) : undefined} style={{ cursor: deleteMode ? 'pointer' : 'default' }}>
+                <div
+                  key={t?.email || `teacher-card-${idx}`}
+                  className={`tp-teacher-card ${deleteMode && selectedIds.has(t?.email) ? 'tp-card-selected' : ''}`}
+                  onClick={deleteMode && t?.email ? () => toggleSelect(t.email) : undefined}
+                  style={{ cursor: deleteMode ? 'pointer' : 'default' }}
+                >
                   {deleteMode && (
-                    <div className={`tp-roster-checkbox ${selectedIds.has(t?.email) ? 'tp-cb-checked' : ''}`}>
+                    <div className={`tp-roster-checkbox tp-teacher-checkbox ${selectedIds.has(t?.email) ? 'tp-cb-checked' : ''}`}>
                       {selectedIds.has(t?.email) ? '✓' : ''}
                     </div>
                   )}
-                  {t?.profilePic ? (
-                    <img src={t.profilePic} alt={t?.name || 'Teacher'} className="tp-roster-avatar-img" />
-                  ) : (
-                    <div className="tp-roster-avatar" style={{ background: '#38b26e' }}>{String(t?.name || 'T').charAt(0)}</div>
+
+                  {/* Avatar */}
+                  <div className="tp-teacher-avatar-wrap">
+                    {t?.profilePic ? (
+                      <img src={t.profilePic} alt={t?.name || 'Teacher'} className="tp-teacher-avatar-img" />
+                    ) : (
+                      <div className="tp-teacher-avatar-circle" style={{ background: 'linear-gradient(135deg,#38b26e,#1e8a4f)' }}>
+                        {String(t?.name || 'T').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Name */}
+                  <h3 className="tp-teacher-name">{t?.name || 'Unnamed Teacher'}</h3>
+
+                  {/* Subject badge */}
+                  {t?.subject && (
+                    <span className="tp-teacher-subject-badge">{t.subject}</span>
                   )}
-                  <div className="tp-roster-info">
-                    <p className="tp-roster-name">{t?.name || 'Unnamed Teacher'}</p>
-                    <p className="tp-roster-id">Subject: {t?.subject || 'N/A'}</p>
-                    <p className="tp-roster-roll">Email: {t?.email || 'N/A'}</p>
-                    <p className="tp-roster-meta">Phone: {t?.phone || 'N/A'}</p>
+
+                  {/* Info rows */}
+                  <div className="tp-teacher-info-list">
+                    <div className="tp-teacher-info-row">
+                      <span className="tp-teacher-info-label">✉️ Email</span>
+                      <span className="tp-teacher-info-value">{t?.email || 'N/A'}</span>
+                    </div>
+                    <div className="tp-teacher-info-row">
+                      <span className="tp-teacher-info-label">📞 Phone</span>
+                      <span className="tp-teacher-info-value">{t?.phone || 'N/A'}</span>
+                    </div>
                   </div>
                 </div>
               ))}

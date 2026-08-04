@@ -5,7 +5,7 @@ import schoolSilhouette from '../school_silhouette.png';
 import ExamResultView from './ExamResultView.jsx';
 import ResultEntry from './ResultEntry.jsx';
 import SchoolRoutineManager, { TeacherRoutineReadOnly } from './RoutineView.jsx';
-import { getTeacherPanelData, saveTeacherPanelData, subscribeToTeacherPanelData, saveClassRecord, purgeResultsForStudents } from '../firebase/firestoreSchema.js';
+import { getTeacherPanelData, saveTeacherPanelData, subscribeToTeacherPanelData, saveClassRecord, purgeResultsForStudents, saveStudentProfile } from '../firebase/firestoreSchema.js';
 import { loadGroupSubjectsFromFirestore, saveGroupSubjectsToFirestore } from '../firebase/groupSubjects.js';
 import { getBranchKeyByClass, extractClassNumber, getResolvedBranches, filterClassesByBranch, SCHOOL_BRANCHES, sortClasses } from '../utils/schoolResolver.js';
 import { useViewMode } from '../context/ViewModeContext.jsx';
@@ -15,6 +15,7 @@ import { useAlert } from '../hooks/useAlert.js';
 import ScholasticBaseLogo from './ScholasticBaseLogo.jsx';
 import SafeImage from './SafeImage.jsx';
 import SectionErrorBoundary from './SectionErrorBoundary.jsx';
+import { convertToWebP } from '../utils/imageOptimizer.js';
 
 /* ──────────────────────────────────────────
    SVG Icon Components
@@ -1135,12 +1136,18 @@ function AddTeacherModal({ onClose, onAdd, themeColor }) {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setProfilePicPreview(ev.target.result);
-    reader.readAsDataURL(file);
+    try {
+      const optimized = await convertToWebP(file, { maxWidth: 600, maxHeight: 600, quality: 0.8 });
+      setProfilePicPreview(optimized.dataUrl);
+    } catch (err) {
+      console.error('WebP conversion failed, falling back:', err);
+      const reader = new FileReader();
+      reader.onload = (ev) => setProfilePicPreview(ev.target.result);
+      reader.readAsDataURL(file);
+    }
   };
 
   const validate = () => {
@@ -2403,32 +2410,15 @@ export default function TeacherPanel() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [hasLoadedRemoteData, setHasLoadedRemoteData] = useState(false);
 
-  /* Stateful class roster — supports add & delete */
+  /* Stateful class roster — loaded from localStorage or Firestore.
+   * DO NOT fall back to classSections default data here — that placeholder data
+   * would overwrite real school classes in Firestore during the loading window. */
   const [classes, setClasses] = useState(() => {
     const storedClasses = readStoredData(CLASSES_STORAGE_KEY, null, activeSchoolId);
     if (Array.isArray(storedClasses) && storedClasses.length > 0) {
       return filterAndBindClasses(storedClasses, schoolProfile, activeSchoolId);
     }
-
-    return classSections.map(c => {
-      const defaultGroups = ['Group A', 'Group B', 'Group C'];
-      const studentsWithGroup = c.students.map((s, idx) => ({
-        ...s,
-        group: defaultGroups[idx % defaultGroups.length]
-      }));
-      return {
-        ...c,
-        schoolId: schoolProfile?.schoolId || activeSchoolId || 'PROGGA_DEFAULT',
-        eiinNumber: schoolProfile?.eiinNumber || '',
-        schoolCode: schoolProfile?.schoolCode || '',
-        groups: defaultGroups,
-        students: studentsWithGroup,
-        groupTeachers: {},
-        groupHeadTeachers: {},
-        groupSubjects: {},
-        routines: {},
-      };
-    });
+    return [];
   });
 
   /* Stateful teacher roster — supports add & delete */
@@ -2540,6 +2530,8 @@ export default function TeacherPanel() {
       skipSyncRef.current = false;
       return;
     }
+    // Guard: never auto-save an empty state to Firestore — it would wipe real data.
+    if (classes.length === 0 && teachers.length === 0) return;
 
     saveTeacherPanelDataToFirestore({ classes, teachers, teacherRoutines, timeSlots }, activeSchoolId).catch((err) => {
       console.warn('Could not save teacher panel data to Firestore. Local cache was updated.', err);
@@ -2635,15 +2627,44 @@ export default function TeacherPanel() {
     setTeachers(prev => prev.filter(t => !emailSet.has(t.email)));
   };
 
-  const handleAddStudent = (classIdx, student, groupName) => {
+  const handleAddStudent = async (classIdx, student, groupName) => {
     if (!canModifyClass(classIdx)) return;
-    setClasses(prev => prev.map((cls, i) => {
+
+    let addedStudentObj = null;
+    const nextClasses = classes.map((cls, i) => {
       if (i !== classIdx) return cls;
-      // prefer the provided roll if present, otherwise auto-assign
       const provided = String(student?.roll || '').trim();
       const finalRoll = provided ? provided : String((cls.students || []).length + 1).padStart(2, '0');
-      return { ...cls, students: [...(cls.students || []), { ...student, roll: finalRoll, group: groupName }] };
-    }));
+      addedStudentObj = {
+        ...student,
+        roll: finalRoll,
+        group: groupName,
+        class: cls.className,
+        className: cls.className,
+        classId: cls.classId || cls.className,
+      };
+      return { ...cls, students: [...(cls.students || []), addedStudentObj] };
+    });
+
+    setClasses(nextClasses);
+    writeStoredData(CLASSES_STORAGE_KEY, nextClasses, activeSchoolId);
+    notifySchoolDataChanged();
+
+    // Persist to Firestore immediately so refreshing (F5) never loses the new student
+    try {
+      await saveTeacherPanelDataToFirestore({
+        classes: nextClasses,
+        teachers,
+        teacherRoutines,
+        timeSlots,
+      }, activeSchoolId);
+
+      if (addedStudentObj) {
+        await saveStudentProfile(addedStudentObj, activeSchoolId);
+      }
+    } catch (err) {
+      console.error('Failed to save added student to Firestore:', err);
+    }
   };
 
   const handleAddRoutine = (classIdx, groupName, routineItem) => {

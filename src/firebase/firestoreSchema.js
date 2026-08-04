@@ -73,7 +73,15 @@ export const refs = {
     position: (positionId) => doc(db, COLLECTIONS.positions, cleanId(positionId, 'position')),
     school: (schoolId) => doc(db, COLLECTIONS.schools, String(schoolId || 'PROGGA_DEFAULT').trim()),
     schoolProfile: () => doc(db, COLLECTIONS.schoolData, SCHOOL_PROFILE_DOC_ID),
-    teacherPanel: () => doc(db, COLLECTIONS.schoolData, TEACHER_PANEL_DOC_ID),
+    teacherPanel: (schoolId) => {
+        // Each school gets its own isolated teacherPanel document.
+        // e.g. "teacherPanel" for the default school, "teacherPanel_school-123" for others.
+        const safeSid = String(schoolId || '').trim();
+        const docId = (safeSid && safeSid !== 'PROGGA_DEFAULT' && safeSid !== 'SCHOLASTICBASE_DEFAULT')
+            ? `${TEACHER_PANEL_DOC_ID}_${safeSid}`
+            : TEACHER_PANEL_DOC_ID;
+        return doc(db, COLLECTIONS.schoolData, docId);
+    },
 };
 
 export const withWriteMetadata = (data, extra = {}) => ({
@@ -87,15 +95,12 @@ export const getDocumentData = async (docRef) => {
     return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
 };
 
-let anonAuthAttempted = false;
-
 export const ensureFirebaseAuth = async () => {
-    if (auth && !auth.currentUser && !anonAuthAttempted) {
-        anonAuthAttempted = true;
+    if (auth && !auth.currentUser) {
         try {
             await signInAnonymously(auth);
         } catch (anonErr) {
-            // Anonymous auth disabled in Firebase Console — suppress repeated network request retries
+            console.warn('[Firebase Auth] Anonymous auth sign-in warning:', anonErr?.message || anonErr);
         }
     }
     return auth?.currentUser;

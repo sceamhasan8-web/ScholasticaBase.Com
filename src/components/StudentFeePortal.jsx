@@ -153,6 +153,10 @@ export default function StudentFeePortal({ currentStudent }) {
 
   useEffect(() => {
     refreshFeeData();
+    const handleDataUpdate = () => {
+      refreshFeeData();
+    };
+    window.addEventListener('schoolDataUpdate', handleDataUpdate);
     try {
       if (typeof subscribeToFeeUpdates === 'function') {
         const unsub = subscribeToFeeUpdates(() => {
@@ -160,11 +164,15 @@ export default function StudentFeePortal({ currentStudent }) {
         });
         return () => {
           if (typeof unsub === 'function') unsub();
+          window.removeEventListener('schoolDataUpdate', handleDataUpdate);
         };
       }
     } catch (err) {
       console.warn('subscribeToFeeUpdates failed:', err);
     }
+    return () => {
+      window.removeEventListener('schoolDataUpdate', handleDataUpdate);
+    };
   }, [studentId, className, branchKey]);
 
   // Safe Fee Evaluation Calculation

@@ -8,6 +8,7 @@ import { getSchoolNameByClass, getBranchKeyByClass, getBranchByClass, SCHOOL_BRA
 import useTranslation from '../hooks/useTranslation.js';
 import useConfirm from '../hooks/useConfirm.js';
 import useAlert from '../hooks/useAlert.js';
+import { convertToWebP } from '../utils/imageOptimizer.js';
 import PrintContainer from './PrintContainer.jsx';
 import './ExamResultView.css';
 
@@ -497,16 +498,22 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     setEntryRows([{ id: `${Date.now()}-1`, subject: DEFAULT_SUBJECTS[0], cqMarks: '', mcqMarks: '' }]);
   };
 
-  const handlePhotoUpload = (event) => {
+  const handlePhotoUpload = async (event) => {
     if (readOnly) return;
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (loadEvent) => {
-      setEntryMeta(prev => ({ ...prev, profilePic: loadEvent.target.result }));
-    };
-    reader.readAsDataURL(file);
+    try {
+      const optimized = await convertToWebP(file, { maxWidth: 600, maxHeight: 600, quality: 0.8 });
+      setEntryMeta(prev => ({ ...prev, profilePic: optimized.dataUrl }));
+    } catch (err) {
+      console.error('WebP conversion failed, falling back:', err);
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        setEntryMeta(prev => ({ ...prev, profilePic: loadEvent.target.result }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const getSelectionId = (resultKey, source = 'local') => `${source || 'local'}::${resultKey}`;
@@ -779,6 +786,57 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     return [...(enteredResults || []), ...(firestoreResults || [])];
   }, [enteredResults, firestoreResults]);
 
+  // Helper to filter results for an exam card strictly to enrolled students in the school roster
+  const getEnrolledResultsForExamCard = useCallback((examId, targetClass) => {
+    const targetClassClean = String(targetClass || '').trim().toLowerCase();
+    const targetClassData = (classes || []).find((cls) => cls && String(cls.className || '').trim().toLowerCase() === targetClassClean);
+
+    const activeForExam = (allResults || []).filter((r) => {
+      if (!r) return false;
+      const rClassClean = String(r?.class || '').trim().toLowerCase();
+      const rExamClean = String(r?.examId || r?.term || 'current').trim().toLowerCase();
+      const targetExamClean = String(examId || 'current').trim().toLowerCase();
+      return rClassClean === targetClassClean && rExamClean === targetExamClean && isResultInAllowedClass(r);
+    });
+
+    if (targetClassData) {
+      const enrolledStudents = targetClassData.students || [];
+      if (enrolledStudents.length === 0) return [];
+
+      return activeForExam.filter((result) => {
+        const rId = String(result?.studentId || '').trim().toLowerCase();
+        const rRoll = String(result?.roll || '').trim().toLowerCase();
+        const rRollNum = parseInt(rRoll, 10);
+        const rName = String(result?.name || result?.studentName || '').trim().toLowerCase();
+
+        return enrolledStudents.some((s) => {
+          if (!s) return false;
+          const sId = String(s?.id || s?.studentId || s?.userId || '').trim().toLowerCase();
+          if (sId && rId && sId === rId) return true;
+
+          const sRoll = String(s?.roll || '').trim().toLowerCase();
+          const sRollNum = parseInt(sRoll, 10);
+          const rollMatch = sRoll && rRoll && (sRoll === rRoll || (!isNaN(sRollNum) && sRollNum === rRollNum));
+
+          const sName = String(s?.name || s?.studentName || '').trim().toLowerCase();
+          const nameMatch = sName && rName && sName === rName;
+
+          if (rollMatch && nameMatch) return true;
+          if (rollMatch && (!rName || !sName)) return true;
+          if (nameMatch && (!rRoll || !sRoll)) return true;
+
+          return false;
+        });
+      });
+    }
+
+    if (Array.isArray(classes) && classes.length > 0) {
+      return [];
+    }
+
+    return activeForExam;
+  }, [classes, allResults, isResultInAllowedClass]);
+
   // Helper to resolve exams with results
   const uniqueExamIdsInResults = useMemo(() => {
     const ids = new Set();
@@ -807,7 +865,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       });
     }
 
-    // 2. Add any legacy exam sessions from results that aren't already added
+    // 2. Add legacy exam sessions only if they have results for enrolled students
     if (Array.isArray(uniqueExamIdsInResults)) {
       uniqueExamIdsInResults.forEach((examId) => {
         const matchingResults = allResults.filter(r => (r.examId || 'current') === examId);
@@ -817,6 +875,10 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
           const name = examId === 'current' ? 'General Term (Legacy)' : examId;
           if (isExamDeleted(examId, cls, name)) return;
           if (list.some((e) => e.examId === examId && String(e.targetClass || '').trim().toLowerCase() === String(cls || '').trim().toLowerCase())) return;
+
+          // Do not include legacy exams if no enrolled students have results in this class
+          const enrolledResults = getEnrolledResultsForExamCard(examId, cls);
+          if (enrolledResults.length === 0) return;
 
           list.push({
             examId: examId,
@@ -830,7 +892,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       });
     }
     return list;
-  }, [examSessions, uniqueExamIdsInResults, allResults, isExamDeleted]);
+  }, [examSessions, uniqueExamIdsInResults, allResults, isExamDeleted, getEnrolledResultsForExamCard]);
 
   // Group results by student for the selected exam session
   const studentResults = useMemo(() => {
@@ -882,39 +944,57 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     });
 
     const targetClassData = (classes || []).find((cls) => cls && String(cls.className || '').trim().toLowerCase() === targetClassClean);
+    const isClassDefinedInSchool = Boolean(targetClassData);
     const enrolledStudents = targetClassData?.students || [];
-    const hasEnrolledRoster = Array.isArray(classes) && classes.length > 0 && enrolledStudents.length > 0;
 
     activeResults.forEach((result) => {
       if (!result) return;
       const resultName = result?.name || result?.studentName || 'Unknown Student';
-      const key = `${result?.class || ''}-${result?.roll || '00'}-${resultName}`;
 
-      if (!grouped[key]) {
-        if (hasEnrolledRoster) {
-          const isEnrolled = enrolledStudents.some((s) => {
-            if (!s) return false;
-            const sId = String(s?.id || s?.studentId || s?.userId || '').trim().toLowerCase();
-            const rId = String(result?.studentId || '').trim().toLowerCase();
-            if (sId && rId && sId === rId) return true;
+      let targetKey = null;
 
-            const sRoll = String(s?.roll || '').trim().toLowerCase();
-            const rRoll = String(result?.roll || '').trim().toLowerCase();
-            if (sRoll && rRoll && (sRoll === rRoll || parseInt(sRoll, 10) === parseInt(rRoll, 10))) return true;
+      if (isClassDefinedInSchool) {
+        const matchingStudent = enrolledStudents.find((s) => {
+          if (!s) return false;
+          const sId = String(s?.id || s?.studentId || s?.userId || '').trim().toLowerCase();
+          const rId = String(result?.studentId || '').trim().toLowerCase();
+          if (sId && rId && sId === rId) return true;
 
-            const sName = String(s?.name || s?.studentName || '').trim().toLowerCase();
-            const rName = String(result?.name || result?.studentName || '').trim().toLowerCase();
-            if (sName && rName && sName === rName) return true;
+          const sRoll = String(s?.roll || '').trim().toLowerCase();
+          const rRoll = String(result?.roll || '').trim().toLowerCase();
+          const sRollNum = parseInt(sRoll, 10);
+          const rRollNum = parseInt(rRoll, 10);
+          const rollMatch = sRoll && rRoll && (sRoll === rRoll || (!isNaN(sRollNum) && sRollNum === rRollNum));
 
-            return false;
-          });
-          if (!isEnrolled && !(result?.marks != null || result?.cqMarks != null)) return; // Skip orphan results only if no marks entered
+          const sName = String(s?.name || s?.studentName || '').trim().toLowerCase();
+          const rName = String(resultName).trim().toLowerCase();
+          const nameMatch = sName && rName && sName === rName;
+
+          if (rollMatch && nameMatch) return true;
+          if (rollMatch && (!rName || !sName)) return true;
+          if (nameMatch && (!rRoll || !sRoll)) return true;
+
+          return false;
+        });
+
+        if (!matchingStudent) {
+          // Skip results belonging to students not enrolled in this class/school
+          return;
         }
 
+        targetKey = `${selectedExamSession?.targetClass || ''}-${matchingStudent?.roll || '00'}-${matchingStudent?.name || 'Student'}`;
+      } else {
+        if (Array.isArray(classes) && classes.length > 0) {
+          return;
+        }
+        targetKey = `${result?.class || ''}-${result?.roll || '00'}-${resultName}`;
+      }
+
+      if (!grouped[targetKey]) {
         sequence += 1;
-        grouped[key] = {
-          key,
-          class: result?.class || '',
+        grouped[targetKey] = {
+          key: targetKey,
+          class: result?.class || selectedExamSession?.targetClass || '',
           roll: result?.roll || '00',
           name: resultName,
           fatherName: result?.fatherName || 'N/A',
@@ -947,7 +1027,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
         )
         : getDynamicGradeInfo(calculatedMarks, resolved.totalMarks, resolved.passMarks);
 
-      grouped[key].subjects.push({
+      grouped[targetKey].subjects.push({
         subject: result.subject,
         marks: calculatedMarks,
         cqMarks: rawCq,
@@ -1074,9 +1154,12 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
 
     // Resolve expected subject list for accurate total max marks calculation
     const expectedSubjectsList = studentObj ? getExpectedSubjects(studentObj) : (selectedExamSession?.subjectRules ? Object.keys(selectedExamSession.subjectRules) : []);
+    const countedSubjectKeys = new Set();
 
     if (expectedSubjectsList.length > 0) {
       expectedSubjectsList.forEach((subName) => {
+        const key = String(subName).trim().toLowerCase();
+        countedSubjectKeys.add(key);
         const rule = rules[subName] || { totalMarks: 100, passMarks: 33 };
         const resolved = resolveRuleTotals(rule);
         maxConfiguredMarks += resolved.totalMarks;
@@ -1084,13 +1167,15 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     }
 
     subjects.forEach((sub) => {
+      const key = String(sub.subject || '').trim().toLowerCase();
       const rule = rules[sub.subject] || { totalMarks: 100, passMarks: 33 };
       const resolved = resolveRuleTotals(rule);
       const marks = Number(sub.marks);
       if (Number.isFinite(marks)) {
         totalMarksObtained += marks;
       }
-      if (expectedSubjectsList.length === 0) {
+      if (!countedSubjectKeys.has(key)) {
+        countedSubjectKeys.add(key);
         maxConfiguredMarks += resolved.totalMarks;
       }
 
@@ -1255,9 +1340,10 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     // ── Fixed render width ────────────────────────────────────────────────────
     // The injected print CSS sets transcript-container to exactly RENDER_W px.
     // We measure the height AT that width so the zoom is device-independent.
-    const RENDER_W = 750;   // must match the width set in injected CSS below
-    const A4_W     = 790;   // A4 paper usable width in px @96dpi (~210mm - tiny inset)
-    const A4_H     = 1110;  // A4 paper usable height in px @96dpi (conservative)
+    // Measuring width & conservative target height compatible with BOTH A4 (794x1123px) and US Letter (816x1056px)
+    const RENDER_W = 794;   // ~210mm @ 96dpi
+    const PAGE_W   = 794;   // Usable width target
+    const PAGE_H   = 980;   // 980px target height strictly guarantees 1-page fit on BOTH A4 & Letter with ZERO 2nd page break!
 
     const el = document.querySelector('.transcript-container');
     if (!el) return 1;
@@ -1284,13 +1370,11 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     el.style.minWidth = prevMinWidth;
     if (overrideEl) el.style.zoom = prevZoom;
 
-    // zoom_W: how much to scale RENDER_W to fill A4 width
-    // zoom_H: how much to scale measured height to fit A4 height
-    // Take the smaller so content never overflows in either dimension
-    const zoomW = A4_W / RENDER_W;          // ~1.053 — slight upscale to fill paper
-    const zoomH = A4_H / h;
-    // Cap upscale at 1.0 so we never blow content up beyond natural size
-    return Math.max(0.35, Math.min(1.0, zoomW, zoomH));
+    // zoom_W: scale to fill paper width
+    // zoom_H: scale to fit 980px height ensuring strictly 1 page without 2nd page spillover
+    const zoomW = PAGE_W / RENDER_W;
+    const zoomH = PAGE_H / h;
+    return Math.max(0.30, Math.min(1.0, zoomW, zoomH));
   };
 
   const _triggerMarksheetPrint = () => {
@@ -1299,40 +1383,64 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
 
     const zoom = computeMarksheetZoom();
 
-    // Build the injected style:
-    //  1. Force A4 portrait page with 0 margins
-    //  2. Negative-offset fixed viewport overlay (-22px) to expand marksheet edge-to-edge
-    //  3. Compact table/section padding in print mode so height stays slim while width fills paper
+    // Build injected print style for true 100% edge-to-edge printing compatible with both A4 and US Letter formats
     const styleContent = [
       '@media print {',
-      '  @page { size: A4 portrait !important; margin: 0 !important; }',
-      '  @page portrait-page { size: A4 portrait !important; margin: 0 !important; }',
+      '  @page { size: portrait !important; margin: 0 !important; }',
+      '  @page portrait-page { size: portrait !important; margin: 0 !important; }',
       '  html, body {',
       '    height: 100% !important;',
+      '    max-height: 100vh !important;',
       '    min-height: 100% !important;',
       '    margin: 0 !important;',
       '    padding: 0 !important;',
       '    overflow: hidden !important;',
+      '    background: #ffffff !important;',
+      '    page-break-before: avoid !important;',
+      '    page-break-after: avoid !important;',
+      '    break-before: avoid !important;',
+      '    break-after: avoid !important;',
+      '  }',
+      '  body.print-mode-transcript .single-marksheet-page-view {',
+      '    position: absolute !important;',
+      '    top: 0 !important;',
+      '    left: 0 !important;',
+      '    right: 0 !important;',
+      '    bottom: 0 !important;',
+      '    width: 100% !important;',
+      '    height: 100% !important;',
+      '    margin: 0 !important;',
+      '    padding: 0 !important;',
+      '    background: #ffffff !important;',
+      '    overflow: hidden !important;',
+      '  }',
+      '  body.print-mode-transcript .single-marksheet-page-container {',
+      '    padding: 0 !important;',
+      '    margin: 0 !important;',
+      '    width: 100% !important;',
+      '    max-width: 100% !important;',
       '  }',
       '  body.print-mode-transcript .mark-sheet-print-area-wrapper {',
       '    display: flex !important;',
       '    flex-direction: column !important;',
       '    justify-content: center !important;',
-      '    align-items: center !important;',
+      '    align-items: stretch !important;',
       '    position: fixed !important;',
-      '    top: -22px !important;',
-      '    left: -22px !important;',
-      '    right: -22px !important;',
-      '    bottom: -22px !important;',
-      '    width: calc(100vw + 44px) !important;',
-      '    height: calc(100vh + 44px) !important;',
+      '    top: 0 !important;',
+      '    left: 0 !important;',
+      '    right: 0 !important;',
+      '    bottom: 0 !important;',
+      '    width: 100vw !important;',
+      '    height: 100vh !important;',
       '    margin: 0 !important;',
       '    padding: 0 !important;',
       '    box-sizing: border-box !important;',
       '    background: #ffffff !important;',
       '    z-index: 999999 !important;',
-      '    overflow: visible !important;',
+      '    overflow: hidden !important;',
+      '    page-break-before: avoid !important;',
       '    page-break-after: avoid !important;',
+      '    break-before: avoid !important;',
       '    break-after: avoid !important;',
       '    page-break-inside: avoid !important;',
       '    break-inside: avoid !important;',
@@ -1348,49 +1456,60 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       '    flex-direction: column !important;',
       '    justify-content: center !important;',
       '    align-items: center !important;',
-      '    margin: 0 auto !important;',
+      '    margin: 0 !important;',
       '    padding: 0 !important;',
       '    box-sizing: border-box !important;',
       '    background: transparent !important;',
-      '    overflow: visible !important;',
+      '    overflow: hidden !important;',
       '  }',
       '  .transcript-container {',
       `    zoom: ${zoom.toFixed(4)} !important;`,
-      // Fixed pixel width — CRITICAL for mobile/tablet print.
-      // Mobile browsers use device viewport width for 100vw/100% in print
-      // (e.g. 375px on iPhone), which would cause content to reflow and
-      // overflow onto 2 pages. A fixed 750px ensures layout is always
-      // A4-equivalent regardless of device screen width.
-      '    width: 750px !important;',
-      '    max-width: 750px !important;',
-      '    min-width: 750px !important;',
-      '    height: auto !important;',
-      '    min-height: auto !important;',
-      '    margin: 0 auto !important;',
-      '    padding: 10px 14px !important;',
-      '    overflow: visible !important;',
-      '    page-break-inside: avoid !important;',
-      '    break-inside: avoid !important;',
+      '    width: 100% !important;',
+      '    max-width: 100% !important;',
+      '    min-width: 100% !important;',
+      '    box-sizing: border-box !important;',
+      '    margin: 0 !important;',
+      '    padding: 18px 22px !important;',
+      '    border-radius: 0 !important;',
+      '    overflow: hidden !important;',
+      '    page-break-before: avoid !important;',
       '    page-break-after: avoid !important;',
+      '    page-break-inside: avoid !important;',
+      '    break-before: avoid !important;',
       '    break-after: avoid !important;',
+      '    break-inside: avoid !important;',
+      '  }',
+      '  .transcript-container * {',
+      '    page-break-before: avoid !important;',
+      '    page-break-after: avoid !important;',
+      '    page-break-inside: avoid !important;',
+      '    break-before: avoid !important;',
+      '    break-after: avoid !important;',
+      '    break-inside: avoid !important;',
+      '  }',
+      '  .transcript-inner-border {',
+      '    top: 10px !important;',
+      '    left: 10px !important;',
+      '    right: 10px !important;',
+      '    bottom: 10px !important;',
       '  }',
       '  .transcript-performance-table th,',
       '  .transcript-performance-table td {',
-      '    padding: 4px 6px !important;',
-      '    font-size: 11px !important;',
+      '    padding: 3px 5px !important;',
+      '    font-size: 10.5px !important;',
       '  }',
       '  .transcript-student-section {',
-      '    margin-bottom: 6px !important;',
-      '    gap: 8px !important;',
+      '    margin-bottom: 4px !important;',
+      '    gap: 6px !important;',
       '  }',
       '  .transcript-table-container {',
-      '    margin-bottom: 6px !important;',
+      '    margin-bottom: 4px !important;',
       '  }',
       '  .transcript-summary-grid {',
-      '    margin-bottom: 6px !important;',
+      '    margin-bottom: 4px !important;',
       '  }',
       '  .transcript-summary-cell {',
-      '    padding: 4px 2px !important;',
+      '    padding: 3px 2px !important;',
       '  }',
       '}',
     ].join('\n');
@@ -2235,8 +2354,18 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                           setSelectedStudentKey(row.key);
                         }}
                         className="tp-btn-primary"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '7px 14px',
+                          borderRadius: '8px',
+                          fontSize: '12.5px',
+                          fontWeight: '700',
+                          whiteSpace: 'nowrap'
+                        }}
                       >
-                        View →
+                        📄 Show Marksheet
                       </button>
                     </td>
                   </tr>
@@ -2307,7 +2436,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
         : null) ||
       'Annual Examination';
 
-    // Construct complete report card subject list including expected subjects that haven't been entered yet (showing Pending)
+    // Construct complete report card subject list including expected subjects and any extra entered subjects
     const expectedSubjectNames = getExpectedSubjects(selectedStudent);
     const enteredSubjectMap = new Map();
     (selectedStudent.subjects || []).forEach((sub) => {
@@ -2316,33 +2445,53 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       }
     });
 
-    let reportCardSubjectList = [];
+    const reportCardSubjectList = [];
+    const processedSubjectKeys = new Set();
+
     if (expectedSubjectNames.length > 0) {
-      reportCardSubjectList = expectedSubjectNames.map((expectedSubName) => {
-        const entered = enteredSubjectMap.get(String(expectedSubName).trim().toLowerCase());
+      expectedSubjectNames.forEach((expectedSubName) => {
+        const key = String(expectedSubName).trim().toLowerCase();
+        processedSubjectKeys.add(key);
+        const entered = enteredSubjectMap.get(key);
         if (entered) {
-          return {
+          reportCardSubjectList.push({
             ...entered,
             isPending: false,
-          };
+          });
+        } else {
+          const rule = selectedExamSession?.subjectRules?.[expectedSubName] || { totalMarks: 100, passMarks: 33 };
+          const resolved = resolveRuleTotals(rule);
+          reportCardSubjectList.push({
+            subject: expectedSubName,
+            marks: null,
+            cqMarks: null,
+            mcqMarks: null,
+            status: 'Pending',
+            grade: 'Pending',
+            gradePoint: 0,
+            isPending: true,
+            totalMarks: resolved.totalMarks,
+          });
         }
-        const rule = selectedExamSession?.subjectRules?.[expectedSubName] || { totalMarks: 100, passMarks: 33 };
-        const resolved = resolveRuleTotals(rule);
-        return {
-          subject: expectedSubName,
-          marks: null,
-          cqMarks: null,
-          mcqMarks: null,
-          status: 'Pending',
-          grade: 'Pending',
-          gradePoint: 0,
-          isPending: true,
-          totalMarks: resolved.totalMarks,
-        };
       });
-    } else {
-      reportCardSubjectList = (selectedStudent.subjects || []).map((s) => ({ ...s, isPending: false }));
     }
+
+    (selectedStudent.subjects || []).forEach((sub) => {
+      if (sub?.subject) {
+        const key = String(sub.subject).trim().toLowerCase();
+        if (!processedSubjectKeys.has(key)) {
+          processedSubjectKeys.add(key);
+          reportCardSubjectList.push({
+            ...sub,
+            isPending: false,
+          });
+        }
+      }
+    });
+
+    const subjectCount = reportCardSubjectList.length;
+    const dynamicRowPadding = subjectCount > 10 ? '5px 12px' : (subjectCount > 6 ? '7px 14px' : '10px 16px');
+    const dynamicFontSize = subjectCount > 10 ? '12px' : (subjectCount > 6 ? '12.5px' : '13.5px');
 
     const studentInfoRows = [
       { label: 'Student Name', value: selectedStudent.name },
@@ -2686,10 +2835,10 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
 
                       return (
                         <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: '10px 16px', fontSize: '13.5px', fontWeight: '700', color: '#1e293b' }}>
+                          <td style={{ padding: dynamicRowPadding, fontSize: dynamicFontSize, fontWeight: '700', color: '#1e293b' }}>
                             {subject.subject}
                           </td>
-                          <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                          <td style={{ padding: dynamicRowPadding, textAlign: 'center' }}>
                             {subject.isPending ? (
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: '#94a3b8', fontWeight: '700' }}>
                                 — <span style={{ fontSize: '10px', background: '#fef3c7', color: '#d97706', padding: '1px 6px', borderRadius: '4px', border: '1px solid #fcd34d', fontWeight: '800' }}>Pending</span>
@@ -2697,11 +2846,11 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                             ) : (
                               <>
                                 <div>
-                                  <span style={{ fontSize: '15px', fontWeight: '800', color: '#1d4ed8' }}>{subject.marks}</span>
-                                  <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '600', marginLeft: '2px' }}>/{resolved.totalMarks}</span>
+                                  <span style={{ fontSize: subjectCount > 10 ? '13.5px' : '15px', fontWeight: '800', color: '#1d4ed8' }}>{subject.marks}</span>
+                                  <span style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '600', marginLeft: '2px' }}>/{resolved.totalMarks}</span>
                                 </div>
                                 {hasCqMcqData && (
-                                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', marginTop: '2px' }}>
+                                  <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '600', marginTop: '1px' }}>
                                     CQ:{subject.cqMarks}/{rule.cqTotal ?? 70}
                                     {hasMcq && ` MCQ:${subject.mcqMarks}/${rule.mcqTotal ?? 30}`}
                                   </div>
@@ -2709,20 +2858,20 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                               </>
                             )}
                           </td>
-                          <td style={{ padding: '10px 16px', textAlign: 'center' }}>
-                            <span style={{ fontSize: '14px', fontWeight: '800', color: '#0f172a' }}>
+                          <td style={{ padding: dynamicRowPadding, textAlign: 'center' }}>
+                            <span style={{ fontSize: subjectCount > 10 ? '13px' : '14px', fontWeight: '800', color: '#0f172a' }}>
                               {highestMark}
                             </span>
                           </td>
-                          <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                          <td style={{ padding: dynamicRowPadding, textAlign: 'center' }}>
                             {subject.isPending ? (
-                              <span style={{ display: 'inline-block', padding: '4px 10px', borderRadius: '6px', background: '#f1f5f9', color: '#94a3b8', fontSize: '12px', fontWeight: '700' }}>
+                              <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', background: '#f1f5f9', color: '#94a3b8', fontSize: '12px', fontWeight: '700' }}>
                                 —
                               </span>
                             ) : (
                               <span style={{
                                 display: 'inline-block',
-                                padding: '4px 14px',
+                                padding: subjectCount > 10 ? '2px 10px' : '4px 14px',
                                 borderRadius: '6px',
                                 background: {
                                   'A+': '#6d28d9',
@@ -2734,16 +2883,16 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                                   'F': '#b91c1c',
                                 }[subject.grade] || '#6d28d9',
                                 color: '#fff',
-                                fontSize: '13px',
+                                fontSize: subjectCount > 10 ? '12px' : '13px',
                                 fontWeight: '800',
-                                minWidth: '36px',
+                                minWidth: '32px',
                                 textAlign: 'center',
                               }}>
                                 {subject.grade}
                               </span>
                             )}
                           </td>
-                          <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                          <td style={{ padding: dynamicRowPadding, textAlign: 'center' }}>
                             {subject.isPending ? (
                               <span style={{
                                 display: 'inline-block',
@@ -3035,12 +3184,11 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                 const branchExams = examsWithResults.filter(
                   (exam) => (exam.branchKey || getBranchKeyByClass(exam.targetClass || exam)) === branchKey
                 );
-                // Per-branch aggregate: unique students with results
+                // Per-branch aggregate: unique enrolled students with results
                 const branchStudentSet = new Set();
                 branchExams.forEach((exam) => {
-                  firestoreResults
-                    .filter((r) => (r.examId || 'current') === exam.examId && r.class === exam.targetClass)
-                    .forEach((r) => branchStudentSet.add(`${r.class}-${r.roll}-${r.name || r.studentName}`));
+                  const enrolledRes = getEnrolledResultsForExamCard(exam.examId, exam.targetClass);
+                  enrolledRes.forEach((r) => branchStudentSet.add(`${r.class}-${r.roll}-${r.name || r.studentName}`));
                 });
 
                 return (
@@ -3076,7 +3224,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                     ) : (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
                         {branchExams.map((exam) => {
-                          const resultsForExam = firestoreResults.filter((r) => (r.examId || 'current') === exam.examId && r.class === exam.targetClass);
+                          const resultsForExam = getEnrolledResultsForExamCard(exam.examId, exam.targetClass);
                           const uniqueStudents = new Set(resultsForExam.map((r) => `${r.class}-${r.roll}-${r.name || r.studentName}`));
                           return (
                             <div
@@ -3240,6 +3388,125 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       </div>
     );
   };
+
+  if (selectedStudent) {
+    const activeExamName =
+      selectedExamSession?.name ||
+      selectedExamSession?.title ||
+      selectedExamSession?.examName ||
+      selectedExamSession?.term ||
+      (selectedStudent?.subjects?.[0]?.examId && selectedStudent?.subjects?.[0]?.examId !== 'current'
+        ? selectedStudent?.subjects?.[0]?.examId
+        : null) ||
+      'Annual Examination';
+
+    return (
+      <div
+        className="single-marksheet-page-view"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 999999,
+          backgroundColor: '#f8fafc',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {/* Top Header Bar for Single Page View (Hidden during printing) */}
+        <div
+          className="mark-sheet-no-print"
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 100,
+            background: 'linear-gradient(135deg, #0f172a, #1e3a8a)',
+            padding: '14px 24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
+            color: '#ffffff',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <button
+              type="button"
+              onClick={() => setSelectedStudentKey(null)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'rgba(255, 255, 255, 0.15)',
+                color: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                borderRadius: '10px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontWeight: '700',
+                fontSize: '14px',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)')}
+            >
+              ← Back
+            </button>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.01em' }}>
+                📄 {selectedStudent.name} — Marksheet
+              </h3>
+              <span style={{ fontSize: '12px', color: '#93c5fd', fontWeight: '600' }}>
+                Class: {selectedStudent.class} | Roll: {selectedStudent.roll} | Exam: {activeExamName}
+              </span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={handlePrintMarkSheet}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: '#2563eb',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '9px 18px',
+                cursor: 'pointer',
+                fontWeight: '700',
+                fontSize: '13.5px',
+                boxShadow: '0 4px 12px rgba(37,99,235,0.4)',
+              }}
+            >
+              🖨️ Print Marksheet
+            </button>
+          </div>
+        </div>
+
+        {/* Standalone Marksheet Content Container */}
+        <div
+          style={{
+            flex: 1,
+            padding: '24px 16px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'flex-start',
+          }}
+        >
+          <div style={{ width: '100%', maxWidth: '900px' }}>
+            {renderStudentDetails()}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={selectedStudent ? 'mark-sheet-mode' : 'results-list-mode'} style={{ padding: '20px 0' }}>

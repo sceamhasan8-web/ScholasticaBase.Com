@@ -5,6 +5,7 @@ import {
   getStudentFeeRecord,
   saveFeeRecord,
   evaluateFeeStatus,
+  calculateProratedMonthlyFee,
   addStudentOtherFee,
   removeStudentOtherFee,
   formatBDT,
@@ -81,11 +82,21 @@ export default function StudentFeeConfigModal({
     }
   }, [studentId, targetClass, isOpen]);
 
+  const admissionDate = student?.admissionDate || student?.dateAdded || student?.createdAt || new Date().toISOString().split('T')[0];
+
   // Real-time calculated live summary
   const liveCalculation = useMemo(() => {
     const monthlyRate = Math.max(0, Number(classMonthlyFee) || 0);
     const months = Math.max(0, Number(unpaidMonths) || 0);
-    const totalMonthlyDue = months * monthlyRate;
+    
+    const proration = calculateProratedMonthlyFee(admissionDate, monthlyRate);
+
+    let totalMonthlyDue = months * monthlyRate;
+    if (months === 1 && proration.isProrated) {
+      totalMonthlyDue = proration.proratedFee;
+    } else if (months > 1 && proration.isProrated) {
+      totalMonthlyDue = proration.proratedFee + (months - 1) * monthlyRate;
+    }
 
     const totalOtherDue = otherFees.reduce(
       (sum, item) => sum + (Math.max(0, Number(item.amount)) || 0),
@@ -100,8 +111,9 @@ export default function StudentFeeConfigModal({
       totalMonthlyDue,
       totalOtherDue,
       grandTotalOutstanding,
+      proration,
     };
-  }, [classMonthlyFee, unpaidMonths, otherFees]);
+  }, [classMonthlyFee, unpaidMonths, otherFees, admissionDate]);
 
   if (!isOpen) return null;
 
