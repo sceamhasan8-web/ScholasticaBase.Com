@@ -161,15 +161,11 @@ export function RealtimeSyncProvider({ children }) {
       (err) => {
         if (!mounted) return;
         const code = String(err?.code || '').toLowerCase();
-        if (code === 'permission-denied') {
-          // Non-fatal — user doesn't have a Firestore record yet
-          console.warn(
-            '[RealtimeSyncContext] User account listener: permission denied.',
-            'Account may be local-only. Sync disabled for this user.'
-          );
+        if (code === 'permission-denied' || String(err?.message || '').toLowerCase().includes('permission')) {
+          // Account is local-only — disable cloud sync gracefully
           setUserSyncStatus(SYNC_STATUS.IDLE);
         } else {
-          console.error('[RealtimeSyncContext] User account listener error:', err);
+          console.warn('[RealtimeSyncContext] User account listener note:', err?.message || err);
           setUserSyncStatus(SYNC_STATUS.ERROR);
         }
         setLiveUserAccount(null);
@@ -209,23 +205,16 @@ export function RealtimeSyncProvider({ children }) {
         (err) => {
           if (!mounted) return;
           const code = String(err?.code || '').toLowerCase();
-          if (code === 'permission-denied') {
-            console.warn(
-              '[RealtimeSyncContext] School profile listener: permission denied.',
-              'Check Firestore security rules for schoolData/schoolProfile.'
-            );
+          if (code === 'permission-denied' || String(err?.message || '').toLowerCase().includes('permission')) {
             setProfileSyncStatus(SYNC_STATUS.IDLE);
           } else {
-            console.error('[RealtimeSyncContext] School profile listener error:', err);
+            console.warn('[RealtimeSyncContext] School profile listener note:', err?.message || err);
             setProfileSyncStatus(SYNC_STATUS.ERROR);
           }
           setLiveSchoolProfile(null);
         }
       );
     } catch (initErr) {
-      // Firestore may not be fully initialized yet on first render (HMR / race).
-      // The effect will re-run on the next render cycle.
-      console.warn('[RealtimeSyncContext] School profile listener could not start:', initErr?.message);
       setProfileSyncStatus(SYNC_STATUS.IDLE);
     }
 
@@ -233,14 +222,9 @@ export function RealtimeSyncProvider({ children }) {
       mounted = false;
       unsubscribe();
     };
-  }, []); // School profile listener runs for the lifetime of the app
+  }, []);
 
   // ── Listener 3: Users Collection (admin-only) ───────────────────────────────
-  // Activates only when an admin/super-admin is logged in.
-  // On every Firestore users-collection change (new user, password update, delete):
-  //   1. Merges all incoming user documents into schoolAppLocalUsers in localStorage
-  //      so other devices see new accounts without a page refresh.
-  //   2. Increments liveUsersVersion so AdminDashboard re-renders the accounts list.
   const usersListenerActive = useRef(false);
   useEffect(() => {
     if (!db || !isAdmin || !activeUserId) {
@@ -255,11 +239,10 @@ export function RealtimeSyncProvider({ children }) {
 
     const unsubscribe = onSnapshot(
       usersCollectionRef,
-      { includeMetadataChanges: false }, // only real data changes, not cache metadata events
+      { includeMetadataChanges: false },
       (snapshot) => {
         if (!mounted) return;
 
-        // Collect all user documents from this snapshot
         const freshDocs = [];
         snapshot.forEach((docSnap) => {
           if (docSnap.exists()) {
@@ -267,23 +250,14 @@ export function RealtimeSyncProvider({ children }) {
           }
         });
 
-        // Merge into localStorage so the accounts panel (and login) stays fresh
         mergeUsersIntoLocalStorage(freshDocs);
-
-        // Signal consumers (AdminDashboard) to re-render their accounts list
         setLiveUsersVersion((v) => v + 1);
       },
       (err) => {
         if (!mounted) return;
         const code = String(err?.code || '').toLowerCase();
-        if (code === 'permission-denied') {
-          // Firestore rules may restrict collection reads — non-fatal
-          console.warn(
-            '[RealtimeSyncContext] Users collection listener: permission denied. ' +
-            'Check Firestore rules for the users collection.'
-          );
-        } else {
-          console.warn('[RealtimeSyncContext] Users collection listener error:', err?.message);
+        if (code !== 'permission-denied' && !String(err?.message || '').toLowerCase().includes('permission')) {
+          console.warn('[RealtimeSyncContext] Users collection listener note:', err?.message || err);
         }
       }
     );
@@ -347,11 +321,6 @@ export function RealtimeSyncProvider({ children }) {
 export function useRealtimeSyncContext() {
   const ctx = useContext(RealtimeSyncContext);
   if (!ctx) {
-    // Safe fallback — allows using the hook in components that are outside the
-    // provider during testing or SSR without crashing.
-    console.warn(
-      '[RealtimeSyncContext] useRealtimeSyncContext called outside of RealtimeSyncProvider. Returning no-op fallback.'
-    );
     return {
       liveUserAccount: null,
       liveSchoolProfile: null,

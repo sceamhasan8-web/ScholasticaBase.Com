@@ -5,7 +5,6 @@ export function useAlert() {
   const context = useContext(AlertContext);
 
   if (!context || !context.showAlert) {
-    console.warn('[AlertContext] useAlert was called outside of AlertProvider. Falling back to default.');
     const fallback = (msg) => {
       if (typeof window !== 'undefined') {
         window.alert(msg);

@@ -119,7 +119,6 @@ export function ViewModeProvider({ children }) {
 export function useViewMode() {
   const context = useContext(ViewModeContext);
   if (!context) {
-    console.warn('[ViewModeContext] useViewMode was called outside of ViewModeProvider. Returning safe fallback context.');
     return {
       viewMode: 'admin',
       impersonatedUser: null,

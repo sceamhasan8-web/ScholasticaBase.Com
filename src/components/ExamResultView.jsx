@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { deleteResultEntry, saveResultEntry, subscribeToResults, subscribeToExams, saveExamSession, deleteExamSession, getStoredResultsFromLocal } from '../firebase/firestoreSchema.js';
+import { deleteResultEntry, saveResultEntry, subscribeToResults, subscribeToExams, saveExamSession, deleteExamSession, getStoredResultsFromLocal, subscribeToTeacherPanelData, saveTeacherPanelData } from '../firebase/firestoreSchema.js';
 import { getBangladeshGradeInfo, getDynamicGradeInfo, getDynamicGradeInfoWithComponents, resolveRuleTotals } from '../utils/bangladeshGrading.js';
 import { useSchoolProfile } from '../context/SchoolProfileContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -192,6 +192,27 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedResultKeys, setSelectedResultKeys] = useState([]);
   const [deletedResultKeys, setDeletedResultKeys] = useState([]);
+  const [screenScale, setScreenScale] = useState(1);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window === 'undefined') return;
+      const w = window.innerWidth;
+      if (w < 820) {
+        const padding = 16;
+        const targetW = 794;
+        const availableW = Math.max(280, w - padding);
+        const scale = Math.max(0.35, Math.min(1.0, availableW / targetW));
+        setScreenScale(scale);
+      } else {
+        setScreenScale(1);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Ref for the tabulation sheet DOM node (used for targeted print)
   const tabulationRef = useRef(null);
@@ -240,24 +261,36 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
         (r) => (r.examId || 'current') === targetExamId && (!examClass || r.class === examClass)
       );
 
-      // 1. Optimistic UI Updates - instantly update local React state and localStorage
+      let nextExamSessions = [];
+      setExamSessions((prev) => {
+        nextExamSessions = prev.filter(
+          (item) =>
+            (item?.examId || item?.id || item?.key) !== targetExamId ||
+            (examClass && item?.targetClass !== examClass)
+        );
+        saveStoredExamSessions(nextExamSessions, activeSchoolId);
+        return nextExamSessions;
+      });
+
+      let nextResults = [];
       const matchingKeys = new Set(matchingResults.map((r) => r.key || r.id));
-      setFirestoreResults((prev) => prev.filter((r) => !matchingKeys.has(r.key || r.id)));
+
+      setFirestoreResults((prev) => {
+        nextResults = prev.filter((r) => !matchingKeys.has(r.key || r.id));
+        try {
+          const key = activeSchoolId ? `progga_stored_results_${activeSchoolId}` : 'progga_stored_results';
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem(key, JSON.stringify(nextResults));
+          }
+        } catch { }
+        return nextResults;
+      });
+
       setEnteredResults((prev) =>
         prev.filter(
           (r) => !((r.examId || 'current') === targetExamId && (!examClass || r.class === examClass))
         )
       );
-
-      setExamSessions((prev) => {
-        const next = prev.filter(
-          (item) =>
-            (item?.examId || item?.id || item?.key) !== targetExamId ||
-            (examClass && item?.targetClass !== examClass)
-        );
-        saveStoredExamSessions(next, activeSchoolId);
-        return next;
-      });
 
       const keysToAdd = [
         targetExamId,
@@ -274,7 +307,10 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
         return next;
       });
 
-      // 2. Perform async deletion in background
+      // Synchronize deletion to Central TeacherPanel Firestore document (Class-style Realtime Delete Sync!)
+      saveTeacherPanelData({ examSessions: nextExamSessions, storedResults: nextResults }, activeSchoolId).catch(() => { });
+
+      // Perform async deletion in background collections
       (async () => {
         if (targetExamId) {
           try {
@@ -295,7 +331,6 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
         }
       })();
 
-      // 3. Reset selected exam session if it's the one being deleted
       if (
         selectedExamSession &&
         ((selectedExamSession?.examId || selectedExamSession?.id || selectedExamSession?.key) === targetExamId &&
@@ -318,26 +353,94 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
         if (!snapshot || !snapshot.docs) return;
         const firestoreDocs = snapshot.docs.map((item) => {
           const data = item.data() || {};
-          return { key: item.id, id: item.id, ...data };
+          const key = data.resultId || item.id;
+          return { key, id: key, resultId: key, ...data };
         });
         const localDocs = getStoredResultsFromLocal(activeSchoolId);
         const map = new Map();
-        [...localDocs, ...firestoreDocs].forEach((item) => {
+        // Add local docs first
+        localDocs.forEach((item) => {
           const key = item?.key || item?.id || item?.resultId;
-          if (key) map.set(key, { ...map.get(key), ...item });
+          if (key) map.set(key, item);
         });
-        setFirestoreResults(Array.from(map.values()));
+        // Let live Firestore snapshot override local docs with authoritative server data
+        firestoreDocs.forEach((item) => {
+          const key = item?.key || item?.id || item?.resultId;
+          if (key) map.set(key, item);
+        });
+
+        const mergedResults = Array.from(map.values());
+        setFirestoreResults(mergedResults);
+
+        // Sync local storage with latest merged snapshot
+        try {
+          const key = activeSchoolId ? `progga_stored_results_${activeSchoolId}` : 'progga_stored_results';
+          if (typeof window !== 'undefined' && window.localStorage) {
+            window.localStorage.setItem(key, JSON.stringify(mergedResults));
+          }
+        } catch {
+          // ignore storage quota error
+        }
       },
       (err) => {
-        console.warn('Could not subscribe to result entries:', err);
+        const code = String(err?.code || '').toLowerCase();
+        const msg = String(err?.message || '').toLowerCase();
+        if (code !== 'permission-denied' && !msg.includes('permission')) {
+          console.warn('Could not subscribe to result entries:', err?.message || err);
+        }
         const localDocs = getStoredResultsFromLocal(activeSchoolId);
         if (localDocs.length > 0) setFirestoreResults(localDocs);
       },
       activeSchoolId
     );
 
+    const handleStorageChange = (e) => {
+      const storageKey = activeSchoolId ? `progga_stored_results_${activeSchoolId}` : 'progga_stored_results';
+      if (e.key === storageKey && e.newValue) {
+        try {
+          const updatedLocal = JSON.parse(e.newValue);
+          if (Array.isArray(updatedLocal)) {
+            setFirestoreResults(updatedLocal);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    const unsubscribeTeacherPanel = subscribeToTeacherPanelData(
+      (docSnap) => {
+        if (!docSnap || !docSnap.exists()) return;
+        const remoteData = docSnap.data();
+
+        if (Array.isArray(remoteData?.examSessions)) {
+          const freshExams = remoteData.examSessions.filter((exam) => {
+            const k = exam?.examId || exam?.id || exam?.key;
+            return k && !isExamDeleted(k, exam?.targetClass, exam?.name);
+          });
+          setExamSessions(freshExams);
+          saveStoredExamSessions(freshExams, activeSchoolId);
+        }
+
+        if (Array.isArray(remoteData?.storedResults)) {
+          setFirestoreResults(remoteData.storedResults);
+          try {
+            const key = activeSchoolId ? `progga_stored_results_${activeSchoolId}` : 'progga_stored_results';
+            if (typeof window !== 'undefined' && window.localStorage) {
+              window.localStorage.setItem(key, JSON.stringify(remoteData.storedResults));
+            }
+          } catch { }
+        }
+      },
+      () => { },
+      activeSchoolId
+    );
+
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
+      if (typeof unsubscribeTeacherPanel === 'function') unsubscribeTeacherPanel();
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, [activeSchoolId]);
 
@@ -353,24 +456,75 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
 
         const localDocs = getStoredExamSessions(activeSchoolId);
         const map = new Map();
-        [...localDocs, ...firestoreDocs].forEach((item) => {
+        localDocs.forEach((item) => {
           const id = item?.examId || item?.id || item?.key;
-          if (id) map.set(id, { ...map.get(id), ...item });
+          if (id && !deletedExamKeys.includes(id)) map.set(id, item);
         });
+
+        const activeServerExamIds = new Set();
+        firestoreDocs.forEach((item) => {
+          const id = item?.examId || item?.id || item?.key;
+          if (id && item?.status !== 'deleted') {
+            activeServerExamIds.add(id);
+            map.set(id, item);
+          }
+        });
+
+        if (activeServerExamIds.size > 0 && Array.isArray(deletedExamKeys) && deletedExamKeys.length > 0) {
+          const hasStaleKeys = deletedExamKeys.some((k) => activeServerExamIds.has(k) || activeServerExamIds.has(k.split('::')[0]));
+          if (hasStaleKeys) {
+            setDeletedExamKeys((prev) => {
+              const next = prev.filter((k) => !activeServerExamIds.has(k) && !activeServerExamIds.has(k.split('::')[0]));
+              if (typeof window !== 'undefined' && window.localStorage) {
+                const storageKey = activeSchoolId ? `progga_deleted_exams_${activeSchoolId}` : 'progga_deleted_exams';
+                window.localStorage.setItem(storageKey, JSON.stringify(next));
+              }
+              return next;
+            });
+          }
+        }
+
         const merged = Array.from(map.values());
         setExamSessions(merged);
         saveStoredExamSessions(merged, activeSchoolId);
       },
       (err) => {
-        console.warn('Could not subscribe to exam sessions:', err);
+        const code = String(err?.code || '').toLowerCase();
+        const msg = String(err?.message || '').toLowerCase();
+        if (code !== 'permission-denied' && !msg.includes('permission')) {
+          console.warn('Could not subscribe to exam sessions:', err?.message || err);
+        }
+        const localDocs = getStoredExamSessions(activeSchoolId);
+        if (localDocs.length > 0) setExamSessions(localDocs);
       },
       activeSchoolId
     );
 
+    const handleExamStorageChange = (e) => {
+      const key = activeSchoolId ? `progga_exam_sessions_${activeSchoolId}` : 'progga_exam_sessions';
+      if (e.key === key && e.newValue) {
+        try {
+          const updated = JSON.parse(e.newValue);
+          if (Array.isArray(updated)) setExamSessions(updated);
+        } catch {
+          // ignore
+        }
+      }
+    };
+    const handleCustomExamsUpdate = () => {
+      const localDocs = getStoredExamSessions(activeSchoolId);
+      if (localDocs.length > 0) setExamSessions(localDocs);
+    };
+
+    window.addEventListener('storage', handleExamStorageChange);
+    window.addEventListener('schoolExamsUpdate', handleCustomExamsUpdate);
+
     return () => {
       if (typeof unsubscribe === 'function') unsubscribe();
+      window.removeEventListener('storage', handleExamStorageChange);
+      window.removeEventListener('schoolExamsUpdate', handleCustomExamsUpdate);
     };
-  }, [activeSchoolId]);
+  }, [activeSchoolId, deletedExamKeys]);
 
 
   // Preset search class and entry form class when selecting exam session
@@ -694,14 +848,11 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
         examId: examIdToSave,
       };
 
-      if (editingResultSource === 'firestore') {
-        await saveResultEntry({ ...updatedResult, schoolId: activeSchoolId, key: editingResultKey }, activeSchoolId);
-      } else {
-        setEnteredResults(prev => prev.map(result => result.key === editingResultKey ? {
-          ...result,
-          ...updatedResult,
-        } : result));
-      }
+      await saveResultEntry({ ...updatedResult, schoolId: activeSchoolId, key: editingResultKey }, activeSchoolId);
+      setEnteredResults(prev => prev.map(result => result.key === editingResultKey ? {
+        ...result,
+        ...updatedResult,
+      } : result));
     } else {
       const examIdToSave = selectedExamSession?.examId || selectedExamSession?.id || selectedExamSession?.key || 'current';
       const cleanStudentId = String(entryMeta.studentId || entryMeta.roll || entryMeta.name || 'stu')
@@ -753,6 +904,8 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       });
 
       await Promise.all(newRows.map(({ key, ...result }) => saveResultEntry({ ...result, schoolId: activeSchoolId, key }, activeSchoolId)));
+      const allUpdatedResults = [...(enteredResults || []), ...(firestoreResults || []), ...newRows];
+      saveTeacherPanelData({ storedResults: allUpdatedResults }, activeSchoolId).catch(() => { });
     }
 
     showAlert('Result saved and verified in Firebase successfully.', 'Result Saved', 'success');
@@ -775,67 +928,36 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     const cleanId = String(examId || '').trim();
     const cleanClass = String(targetClass || '').trim();
     const cleanName = String(examName || '').trim();
+
+    const existsInActiveExamSessions = Array.isArray(examSessions) && examSessions.some((e) => {
+      const eId = String(e?.examId || e?.id || e?.key || '').trim();
+      return eId && eId === cleanId && e?.status !== 'deleted';
+    });
+    if (existsInActiveExamSessions) return false;
+
     return (
       (cleanId && deletedExamKeys.includes(cleanId)) ||
       (cleanId && cleanClass && deletedExamKeys.includes(`${cleanId}::${cleanClass}`)) ||
       (cleanName && cleanClass && deletedExamKeys.includes(`${cleanName}::${cleanClass}`))
     );
-  }, [deletedExamKeys]);
+  }, [deletedExamKeys, examSessions]);
 
   const allResults = useMemo(() => {
     return [...(enteredResults || []), ...(firestoreResults || [])];
   }, [enteredResults, firestoreResults]);
 
-  // Helper to filter results for an exam card strictly to enrolled students in the school roster
+  // Helper to filter results for an exam card
   const getEnrolledResultsForExamCard = useCallback((examId, targetClass) => {
     const targetClassClean = String(targetClass || '').trim().toLowerCase();
-    const targetClassData = (classes || []).find((cls) => cls && String(cls.className || '').trim().toLowerCase() === targetClassClean);
 
-    const activeForExam = (allResults || []).filter((r) => {
+    return (allResults || []).filter((r) => {
       if (!r) return false;
       const rClassClean = String(r?.class || '').trim().toLowerCase();
       const rExamClean = String(r?.examId || r?.term || 'current').trim().toLowerCase();
       const targetExamClean = String(examId || 'current').trim().toLowerCase();
       return rClassClean === targetClassClean && rExamClean === targetExamClean && isResultInAllowedClass(r);
     });
-
-    if (targetClassData) {
-      const enrolledStudents = targetClassData.students || [];
-      if (enrolledStudents.length === 0) return [];
-
-      return activeForExam.filter((result) => {
-        const rId = String(result?.studentId || '').trim().toLowerCase();
-        const rRoll = String(result?.roll || '').trim().toLowerCase();
-        const rRollNum = parseInt(rRoll, 10);
-        const rName = String(result?.name || result?.studentName || '').trim().toLowerCase();
-
-        return enrolledStudents.some((s) => {
-          if (!s) return false;
-          const sId = String(s?.id || s?.studentId || s?.userId || '').trim().toLowerCase();
-          if (sId && rId && sId === rId) return true;
-
-          const sRoll = String(s?.roll || '').trim().toLowerCase();
-          const sRollNum = parseInt(sRoll, 10);
-          const rollMatch = sRoll && rRoll && (sRoll === rRoll || (!isNaN(sRollNum) && sRollNum === rRollNum));
-
-          const sName = String(s?.name || s?.studentName || '').trim().toLowerCase();
-          const nameMatch = sName && rName && sName === rName;
-
-          if (rollMatch && nameMatch) return true;
-          if (rollMatch && (!rName || !sName)) return true;
-          if (nameMatch && (!rRoll || !sRoll)) return true;
-
-          return false;
-        });
-      });
-    }
-
-    if (Array.isArray(classes) && classes.length > 0) {
-      return [];
-    }
-
-    return activeForExam;
-  }, [classes, allResults, isResultInAllowedClass]);
+  }, [allResults, isResultInAllowedClass]);
 
   // Helper to resolve exams with results
   const uniqueExamIdsInResults = useMemo(() => {
@@ -953,7 +1075,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
 
       let targetKey = null;
 
-      if (isClassDefinedInSchool) {
+      if (isClassDefinedInSchool && enrolledStudents.length > 0) {
         const matchingStudent = enrolledStudents.find((s) => {
           if (!s) return false;
           const sId = String(s?.id || s?.studentId || s?.userId || '').trim().toLowerCase();
@@ -977,17 +1099,13 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
           return false;
         });
 
-        if (!matchingStudent) {
-          // Skip results belonging to students not enrolled in this class/school
-          return;
+        if (matchingStudent) {
+          targetKey = `${selectedExamSession?.targetClass || ''}-${matchingStudent?.roll || result?.roll || '00'}-${matchingStudent?.name || resultName}`;
+        } else {
+          targetKey = `${result?.class || selectedExamSession?.targetClass || ''}-${result?.roll || '00'}-${resultName}`;
         }
-
-        targetKey = `${selectedExamSession?.targetClass || ''}-${matchingStudent?.roll || '00'}-${matchingStudent?.name || 'Student'}`;
       } else {
-        if (Array.isArray(classes) && classes.length > 0) {
-          return;
-        }
-        targetKey = `${result?.class || ''}-${result?.roll || '00'}-${resultName}`;
+        targetKey = `${result?.class || selectedExamSession?.targetClass || ''}-${result?.roll || '00'}-${resultName}`;
       }
 
       if (!grouped[targetKey]) {
@@ -1324,70 +1442,57 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     setSelectedStudentKey(null);
   };
 
-  /**
-   * computeMarksheetZoom
-   * Measures the on-screen transcript-container and returns a CSS zoom value
-   * that guarantees the entire marksheet fits on one A4 portrait page.
-   *
-   * A4 portrait usable area (8 mm margins each side):
-   *   width  = 210mm - 16mm = 194mm  ≈ 734 px  @ 96 dpi
-   *   height = 297mm - 16mm = 281mm  ≈ 1062 px @ 96 dpi
-   *
-   * CSS `zoom` is layout-affecting (unlike transform:scale) so both width and
-   * height are properly shrunk in the browser's layout engine before printing.
-   */
   const computeMarksheetZoom = () => {
-    // ── Fixed render width & compact target printable height ──────────────────
-    const RENDER_W = 794;   // Standard A4 width @ 96dpi (210mm)
-    const TARGET_H = 880;   // Reduced target height to guarantee zero bottom cutoff on mobile/Android print services
+    // Usable printable height safety limit for A4 portrait (@ 96 DPI: 289mm = ~1092px max, 900px is safe 1-page target)
+    const TARGET_H = 900;
 
     const el = document.querySelector('.transcript-container');
-    if (!el) return 0.85;
+    if (!el) return 1.0;
 
-    // Temporarily add a measuring class so CSS forces standard desktop print layout during measurement
-    document.body.classList.add('print-measuring-mode');
+    const wasTranscriptMode = document.body.classList.contains('print-mode-transcript');
+    document.body.classList.add('print-mode-transcript');
 
-    // Save inline styles
+    // Force layout measurement at standard desktop print width
     const prevWidth = el.style.width;
-    const prevMaxWidth = el.style.maxWidth;
-    const prevMinWidth = el.style.minWidth;
     const prevZoom = el.style.zoom;
 
-    el.style.width = `${RENDER_W}px`;
-    el.style.maxWidth = `${RENDER_W}px`;
-    el.style.minWidth = `${RENDER_W}px`;
+    el.style.width = '764px';
     el.style.zoom = '1';
 
-    // Force synchronous layout reflow and measure exact natural A4 height
-    const measuredH = el.scrollHeight || 840;
+    const measuredH = el.scrollHeight || 900;
 
-    // Restore inline styles & remove measuring class
     el.style.width = prevWidth;
-    el.style.maxWidth = prevMaxWidth;
-    el.style.minWidth = prevMinWidth;
     el.style.zoom = prevZoom;
-    document.body.classList.remove('print-measuring-mode');
 
-    // Calculate exact zoom with reduced factor for Android safety
-    const zoomVal = TARGET_H / measuredH;
+    if (!wasTranscriptMode) {
+      document.body.classList.remove('print-mode-transcript');
+    }
 
-    // 0.88 safety multiplier scales the card down further so bottom border recovers completely
-    const rawZoom = zoomVal * 0.88;
-    return Math.max(0.35, Math.min(0.88, rawZoom));
+    if (measuredH <= TARGET_H) {
+      return 1.0;
+    }
+
+    const calculatedZoom = TARGET_H / measuredH;
+    return Math.max(0.60, Math.min(1.0, calculatedZoom));
   };
 
   const _triggerMarksheetPrint = () => {
     document.body.classList.remove('print-mode-tabulation');
     document.body.classList.add('print-mode-transcript');
 
-    const zoom = computeMarksheetZoom();
-
-    // Build injected print style with reduced zoom and compact vertical spacing
-    const styleContent = [
+    const buildStyleContent = (zoomVal) => [
       '@media print {',
-      '  @page { size: A4 portrait !important; margin: 8mm !important; }',
-      '  @page portrait-page { size: A4 portrait !important; margin: 8mm !important; }',
-      '  html, body,',
+      '  @page { size: A4 portrait !important; margin: 3mm !important; }',
+      '  @page portrait-page { size: A4 portrait !important; margin: 3mm !important; }',
+      '  html, body {',
+      '    width: 100% !important;',
+      '    min-width: 100% !important;',
+      '    max-width: 100% !important;',
+      '    margin: 0 !important;',
+      '    padding: 0 !important;',
+      '    background: #ffffff !important;',
+      '    overflow: visible !important;',
+      '  }',
       '  body.print-mode-transcript,',
       '  body.print-mode-transcript #root,',
       '  body.print-mode-transcript .single-marksheet-page-view,',
@@ -1396,9 +1501,16 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       '  body.print-mode-transcript .print-wrapper-root,',
       '  body.print-mode-transcript .print-container,',
       '  body.print-mode-transcript [data-print-container="true"] {',
+      '    page: portrait-page !important;',
       '    position: static !important;',
+      '    top: auto !important;',
+      '    left: auto !important;',
+      '    right: auto !important;',
+      '    bottom: auto !important;',
       '    display: block !important;',
       '    width: 100% !important;',
+      '    min-width: 100% !important;',
+      '    max-width: 100% !important;',
       '    height: auto !important;',
       '    min-height: 0 !important;',
       '    max-height: none !important;',
@@ -1408,30 +1520,47 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       '    box-shadow: none !important;',
       '    border: none !important;',
       '    transform: none !important;',
+      '    overflow: visible !important;',
+      '    z-index: auto !important;',
+      '  }',
+      '  body.print-mode-transcript .single-marksheet-content-container > div {',
+      '    width: 100% !important;',
+      '    max-width: 100% !important;',
       '  }',
       '  body.print-mode-transcript .mark-sheet-no-print,',
       '  body.print-mode-transcript .mark-sheet-actions,',
+      '  body.print-mode-transcript .mark-sheet-screen-only,',
       '  body.print-mode-transcript .print-trigger-bar {',
       '    display: none !important;',
       '    visibility: hidden !important;',
+      '    height: 0 !important;',
+      '  }',
+      '  body.print-mode-transcript .mark-sheet-screen-hidden {',
+      '    display: block !important;',
+      '    visibility: visible !important;',
+      '    width: 100% !important;',
+      '    min-width: 100% !important;',
+      '    max-width: 100% !important;',
+      '    margin: 0 !important;',
       '  }',
       '  .mark-sheet-print-area-wrapper {',
       '    display: block !important;',
       '    width: 100% !important;',
+      '    min-width: 100% !important;',
+      '    max-width: 100% !important;',
       '    margin: 0 !important;',
       '    padding: 0 !important;',
       '    box-sizing: border-box !important;',
       '  }',
-      '  .transcript-container {',
-      `    zoom: ${zoom.toFixed(4)} !important;`,
+      '  body.print-mode-transcript .transcript-container {',
+      `    zoom: ${zoomVal.toFixed(4)} !important;`,
       '    transform: none !important;',
       '    -webkit-transform: none !important;',
       '    width: 100% !important;',
-      '    max-width: 100% !important;',
       '    min-width: 100% !important;',
+      '    max-width: 100% !important;',
       '    box-sizing: border-box !important;',
-      '    margin: 0 auto !important;',
-      '    padding: 12px 16px !important;',
+      '    margin: 0 !important;',
       '    border: 4px double #1e3a8a !important;',
       '    outline: 2px solid #b91c1c !important;',
       '    outline-offset: -6px !important;',
@@ -1443,82 +1572,84 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       '    page-break-inside: avoid !important;',
       '    break-inside: avoid !important;',
       '  }',
-      '  .transcript-student-section {',
+      '  body.print-mode-transcript .transcript-student-section {',
       '    display: grid !important;',
       '    grid-template-columns: 1fr 190px 105px !important;',
-      '    gap: 12px !important;',
+      '    gap: 10px !important;',
       '    align-items: start !important;',
-      '    margin-bottom: 10px !important;',
+      '    flex-direction: row !important;',
       '    width: 100% !important;',
       '  }',
-      '  .transcript-student-grid {',
+      '  body.print-mode-transcript .transcript-student-grid {',
       '    display: flex !important;',
       '    flex-direction: column !important;',
+      '    grid-template-columns: none !important;',
       '    width: 100% !important;',
       '    order: 1 !important;',
       '  }',
-      '  .transcript-info-field {',
+      '  body.print-mode-transcript .transcript-info-field {',
       '    display: flex !important;',
       '    justify-content: space-between !important;',
       '    align-items: center !important;',
-      '    padding: 3px 0 !important;',
       '    gap: 8px !important;',
+      '    border-bottom: 1.5px dotted #a3b8cc !important;',
       '  }',
-      '  .transcript-info-label {',
-      '    font-size: 11px !important;',
+      '  body.print-mode-transcript .transcript-info-label {',
+      '    font-size: 11.5px !important;',
       '    white-space: nowrap !important;',
       '  }',
-      '  .transcript-info-value {',
-      '    font-size: 12px !important;',
+      '  body.print-mode-transcript .transcript-info-value {',
+      '    font-size: 13px !important;',
       '    text-align: right !important;',
       '  }',
-      '  .transcript-grading-box {',
+      '  body.print-mode-transcript .transcript-grading-box {',
       '    width: 190px !important;',
       '    max-width: 190px !important;',
       '    margin: 0 !important;',
       '    order: 2 !important;',
       '  }',
-      '  .transcript-photo-box {',
-      '    width: 105px !important;',
-      '    height: 125px !important;',
+      '  body.print-mode-transcript .transcript-photo-box {',
       '    margin: 0 !important;',
       '    order: 3 !important;',
       '  }',
-      '  .transcript-performance-table th,',
-      '  .transcript-performance-table td {',
-      '    padding: 4px 6px !important;',
-      '    font-size: 11px !important;',
+      '  body.print-mode-transcript .transcript-performance-table {',
+      '    width: 100% !important;',
+      '    table-layout: auto !important;',
       '  }',
-      '  .transcript-table-container {',
-      '    margin-bottom: 10px !important;',
+      '  body.print-mode-transcript .transcript-performance-table th,',
+      '  body.print-mode-transcript .transcript-performance-table td {',
+      '    word-break: normal !important;',
+      '    white-space: normal !important;',
+      '  }',
+      '  body.print-mode-transcript .transcript-table-container {',
       '    overflow: visible !important;',
+      '    width: 100% !important;',
       '  }',
-      '  .transcript-summary-grid {',
+      '  body.print-mode-transcript .transcript-summary-grid {',
       '    display: grid !important;',
       '    grid-template-columns: repeat(5, 1fr) !important;',
-      '    margin-bottom: 10px !important;',
+      '    background: #ffffff !important;',
+      '    width: 100% !important;',
+      '  }',
+      '  body.print-mode-transcript .transcript-summary-cell {',
+      '    border-right: 1px solid #cbd5e1 !important;',
       '    background: #ffffff !important;',
       '  }',
-      '  .transcript-summary-cell {',
-      '    padding: 6px 4px !important;',
-      '    border-right: 1px solid #cbd5e1 !important;',
-      '  }',
-      '  .transcript-summary-cell:last-child {',
+      '  body.print-mode-transcript .transcript-summary-cell:last-child {',
       '    border-right: none !important;',
       '    grid-column: auto !important;',
       '  }',
-      '  .transcript-summary-label {',
-      '    font-size: 8.5px !important;',
+      '  body.print-mode-transcript .transcript-summary-label {',
+      '    font-size: 9px !important;',
       '  }',
-      '  .transcript-summary-value {',
-      '    font-size: 13px !important;',
+      '  body.print-mode-transcript .transcript-summary-value {',
+      '    font-size: 14px !important;',
       '  }',
-      '  .transcript-footer {',
+      '  body.print-mode-transcript .transcript-footer {',
       '    display: grid !important;',
       '    grid-template-columns: repeat(3, 1fr) !important;',
       '    align-items: end !important;',
-      '    margin-top: 12px !important;',
-      '    padding-top: 8px !important;',
+      '    padding-top: 6px !important;',
       '    margin-bottom: 4px !important;',
       '    width: 100% !important;',
       '    box-sizing: border-box !important;',
@@ -1530,10 +1661,6 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       '    flex-direction: column !important;',
       '    align-items: center !important;',
       '    width: 100% !important;',
-      '  }',
-      '  .transcript-signature-spacer {',
-      '    height: 24px !important;',
-      '    min-height: 24px !important;',
       '  }',
       '  .transcript-signature-line {',
       '    width: 100% !important;',
@@ -1548,8 +1675,12 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
 
     const styleEl = document.createElement('style');
     styleEl.id = 'marksheet-portrait-override';
-    styleEl.textContent = styleContent;
+    styleEl.textContent = buildStyleContent(1.0);
     document.head.appendChild(styleEl);
+
+    // Measure zoom after styles are applied
+    const zoom = computeMarksheetZoom();
+    styleEl.textContent = buildStyleContent(zoom);
 
     const cleanup = () => {
       document.body.classList.remove('print-mode-transcript');
@@ -1565,8 +1696,68 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     if (typeof window !== 'undefined') _triggerMarksheetPrint();
   };
 
-  const handleDownloadPdf = () => {
-    if (typeof window !== 'undefined') _triggerMarksheetPrint();
+  const handleDownloadPdf = async () => {
+    if (typeof window === 'undefined') return;
+    const element = document.querySelector('.transcript-container');
+    if (!element) return;
+
+    try {
+      const studentName = (selectedStudent?.name || 'Student').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_');
+      const className = (selectedStudent?.class || 'Class').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_');
+      const rollNo = (selectedStudent?.roll || '0').toString().trim();
+      const filename = `${studentName}_Official_Marksheet_Class${className}_Roll${rollNo}.pdf`;
+
+      // Store original inline style properties
+      const prevZoom = element.style.zoom;
+      const prevWebkitZoom = element.style.WebkitZoom;
+      const prevWidth = element.style.width;
+      const prevMargin = element.style.margin;
+
+      // Force 1:1 scale during capture
+      element.style.zoom = '1';
+      element.style.WebkitZoom = '1';
+      element.style.width = '794px';
+      element.style.margin = '0 auto';
+
+      // Load html2pdf dynamically if needed
+      if (!window.html2pdf) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.body.appendChild(script);
+        });
+      }
+
+      if (window.html2pdf) {
+        const opt = {
+          margin: 0,
+          filename: filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            scrollY: 0,
+            scrollX: 0,
+            windowWidth: 794,
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+        };
+
+        await window.html2pdf().set(opt).from(element).save();
+      }
+
+      // Restore original inline styles
+      element.style.zoom = prevZoom;
+      element.style.WebkitZoom = prevWebkitZoom;
+      element.style.width = prevWidth;
+      element.style.margin = prevMargin;
+    } catch (err) {
+      console.warn('html2pdf download error:', err);
+    }
   };
 
   /**
@@ -2397,7 +2588,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                           whiteSpace: 'nowrap'
                         }}
                       >
-                        📄 Show Marksheet
+                        📥 Download PDF
                       </button>
                     </td>
                   </tr>
@@ -2550,10 +2741,11 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
           badgeFont: '12.5px',
           grandTotalPadding: '10px 14px',
           grandTotalFont: '13.5px',
-          summaryMargin: '18px',
+          summaryMargin: '24px',
           summaryPadding: '10px',
           summaryValueFont: '15px',
-          footerMarginTop: '24px',
+          footerMarginTop: '28px',
+          signatureSpacerHeight: '44px',
           signatureLineMargin: '5px',
           signatureLabelFont: '11.5px',
         };
@@ -2582,10 +2774,11 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
           badgeFont: '11.5px',
           grandTotalPadding: '8px 12px',
           grandTotalFont: '12.5px',
-          summaryMargin: '12px',
+          summaryMargin: '18px',
           summaryPadding: '8px',
           summaryValueFont: '14px',
-          footerMarginTop: '16px',
+          footerMarginTop: '22px',
+          signatureSpacerHeight: '38px',
           signatureLineMargin: '4px',
           signatureLabelFont: '11px',
         };
@@ -2614,10 +2807,11 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
           badgeFont: '10.5px',
           grandTotalPadding: '6px 10px',
           grandTotalFont: '11.5px',
-          summaryMargin: '8px',
+          summaryMargin: '14px',
           summaryPadding: '5px',
           summaryValueFont: '12.5px',
-          footerMarginTop: '10px',
+          footerMarginTop: '16px',
+          signatureSpacerHeight: '34px',
           signatureLineMargin: '3px',
           signatureLabelFont: '10px',
         };
@@ -2646,10 +2840,11 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
           badgeFont: '9.5px',
           grandTotalPadding: '4px 8px',
           grandTotalFont: '10.5px',
-          summaryMargin: '6px',
+          summaryMargin: '10px',
           summaryPadding: '4px',
           summaryValueFont: '11.5px',
-          footerMarginTop: '6px',
+          footerMarginTop: '12px',
+          signatureSpacerHeight: '28px',
           signatureLineMargin: '2px',
           signatureLabelFont: '9.5px',
         };
@@ -2684,655 +2879,550 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       '#0284c7';
 
     /* ─────────────────────────────────────────────────────────────
-       Professional Marksheet Print Trigger Function (@media print execution)
+       Professional Marksheet Print & PDF Download Functions
        ───────────────────────────────────────────────────────────── */
     const triggerProfessionalMarksheetPrint = () => {
-      if (typeof window === 'undefined') return;
+      if (typeof window !== 'undefined') _triggerMarksheetPrint();
+    };
 
-      document.body.classList.remove('print-mode-tabulation');
-      document.body.classList.add('print-mode-transcript');
+    const handleDownloadPdfFile = async () => {
+      try {
+        if (typeof window === 'undefined') return;
 
-      const cleanup = () => {
-        document.body.classList.remove('print-mode-transcript');
-        window.removeEventListener('afterprint', cleanup);
-      };
-      window.addEventListener('afterprint', cleanup);
+        if (!window.html2pdf) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
 
-      // Micro-delay to flush DOM class changes before launching native print dialog
-      setTimeout(() => {
-        window.print();
-      }, 50);
+        const element = document.querySelector('.transcript-container');
+        if (!element) {
+          triggerProfessionalMarksheetPrint();
+          return;
+        }
+
+        const studentName = (selectedStudent?.name || 'Student').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_');
+        const className = (selectedStudent?.class || 'Class').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_');
+        const rollNo = (selectedStudent?.roll || '0').toString().trim();
+        const filename = `${studentName}_Official_Marksheet_Class${className}_Roll${rollNo}.pdf`;
+
+        // Store original inline style properties
+        const prevWidth = element.style.width;
+        const prevMargin = element.style.margin;
+        const prevBoxSizing = element.style.boxSizing;
+
+        // Force fixed width & 0 margin during capture to eliminate blank first page and overflow
+        element.style.width = '790px';
+        element.style.margin = '0 auto';
+        element.style.boxSizing = 'border-box';
+
+        const opt = {
+          margin: 0, // 0 margin eliminates jsPDF canvas offset and 1st blank page
+          filename: filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            scrollY: 0,
+            scrollX: 0,
+            windowWidth: 794,
+          },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+          pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+        };
+
+        await window.html2pdf().set(opt).from(element).save();
+
+        // Restore original inline styles
+        element.style.width = prevWidth;
+        element.style.margin = prevMargin;
+        element.style.boxSizing = prevBoxSizing;
+      } catch (err) {
+        console.warn('html2pdf direct save failed, falling back to window.print():', err);
+        triggerProfessionalMarksheetPrint();
+      }
     };
 
     return (
       <div className="mark-sheet-print-area-wrapper">
-        {/* Navigation & Professional Print Action Toolbar (Hidden when printing via .mark-sheet-no-print) */}
-        <div className="mark-sheet-no-print" style={{
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)',
-          padding: '14px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderRadius: '14px 14px 0 0',
-          boxShadow: '0 4px 20px rgba(15, 23, 42, 0.15)',
-          gap: '12px',
-          flexWrap: 'wrap',
-          marginBottom: '12px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button
-              type="button"
-              onClick={() => setSelectedStudentKey(null)}
-              className="tp-back-btn"
-              title="Back to Student List"
-              aria-label="Back to Student List"
-              style={{
-                background: 'rgba(255, 255, 255, 0.15)',
-                color: '#ffffff',
-                border: '1px solid rgba(255, 255, 255, 0.25)',
-                borderRadius: '8px',
-                padding: '7px 14px',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontWeight: '700',
-                fontSize: '13px',
-              }}
-            >
-              <ChevronLeft /> Back to List
-            </button>
-            <div className="tp-section-header-info">
-              <div style={{ color: '#ffffff', fontSize: '15px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>📜 Official Student Marksheet</span>
-                <span style={{
-                  background: '#16a34a',
-                  color: '#ffffff',
-                  fontSize: '10px',
-                  fontWeight: '800',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  letterSpacing: '0.4px',
-                  textTransform: 'uppercase',
-                }}>
-                  A4 / Letter Ready
-                </span>
-              </div>
-              <span style={{ color: '#93c5fd', fontSize: '12px', fontWeight: '600' }}>
-                {selectedStudent?.name} (Roll: {selectedStudent?.roll}) — {activeExamName}
-              </span>
-            </div>
-          </div>
-
-          {/* Dedicated Print & PDF Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={triggerProfessionalMarksheetPrint}
-              style={{
-                background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
-                color: '#ffffff',
-                border: 'none',
-                padding: '9px 18px',
-                borderRadius: '8px',
-                fontWeight: '700',
-                fontSize: '13px',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
-              }}
-            >
-              🖨️ Print Marksheet (A4)
-            </button>
-
-            <button
-              type="button"
-              onClick={triggerProfessionalMarksheetPrint}
-              style={{
-                background: 'rgba(255, 255, 255, 0.12)',
-                color: '#ffffff',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                padding: '9px 16px',
-                borderRadius: '8px',
-                fontWeight: '700',
-                fontSize: '13px',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              📥 Save PDF
-            </button>
-          </div>
-        </div>
-
-        {/* The Transcript / Report Card Layout wrapped in PrintContainer */}
-        <PrintContainer
-          title={`${activeExamName} — Report Card`}
-          subtitle={`Class: ${selectedStudent.class} · Roll No: ${selectedStudent.roll}`}
-          schoolName={getSchoolNameByClass(selectedStudent.class, schoolProfile) || schoolProfile?.schoolName}
-          eiinNumber={schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')}
-          location={schoolProfile?.location || window.localStorage.getItem('schoolLocation')}
-          singlePageFit={true}
-          showWatermark={false}
-          hideDefaultHeader={true}
-          showFooter={false}
-          showTriggerButton={false}
-        >
-          <div
-            className="transcript-container marksheet-card"
-            style={{
-              position: 'relative',
-              overflow: 'visible',
-              padding: dynamicConfig.cardPadding,
-              backgroundColor: '#FFF2F2',
-              background: '#FFF2F2',
-              border: '4px double #1e3a8a',
-              outline: '2px solid #b91c1c',
-              outlineOffset: '-7px',
-              borderRadius: '14px',
-              boxShadow: '0 12px 45px rgba(30, 58, 138, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.6)',
-            }}
+        {/* Official Certificate Marksheet Layout (Visible On Screen & Formatted For Print) */}
+        <div>
+          <PrintContainer
+            title={`${activeExamName} — Report Card`}
+            subtitle={`Class: ${selectedStudent.class} · Roll No: ${selectedStudent.roll}`}
+            schoolName={getSchoolNameByClass(selectedStudent.class, schoolProfile) || schoolProfile?.schoolName}
+            eiinNumber={schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')}
+            location={schoolProfile?.location || window.localStorage.getItem('schoolLocation')}
+            singlePageFit={true}
+            showWatermark={false}
+            hideDefaultHeader={true}
+            showFooter={false}
+            showTriggerButton={false}
           >
-            {/* Top Navy/Crimson Accent Bar */}
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'linear-gradient(90deg, #1e3a8a, #b91c1c, #1e3a8a)' }} />
-
-            {/* Inner Decorative Accent Frame */}
             <div
-              className="transcript-inner-border"
+              className="transcript-container marksheet-card"
               style={{
-                position: 'absolute',
-                top: '12px',
-                left: '12px',
-                right: '12px',
-                bottom: '12px',
-                border: '1px dashed #1e3a8a',
-                borderRadius: '10px',
-                pointerEvents: 'none',
-                zIndex: 0,
-                opacity: 0.4,
-              }}
-            />
-
-            {/* Ornate Corner Flourishes */}
-            <svg
-              style={{ position: 'absolute', top: 14, left: 14, width: 32, height: 32, color: '#1e3a8a', opacity: 0.85, pointerEvents: 'none', zIndex: 1 }}
-              viewBox="0 0 32 32"
-              fill="none"
-              stroke="currentColor"
-            >
-              <path d="M2 30V10C2 5.58172 5.58172 2 10 2H30" strokeWidth="2.5" strokeLinecap="round" />
-              <path d="M7 25V12C7 9.23858 9.23858 7 12 7H25" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 2" />
-              <circle cx="12" cy="12" r="3" fill="#b91c1c" stroke="none" />
-            </svg>
-            <svg
-              style={{ position: 'absolute', top: 14, right: 14, width: 32, height: 32, color: '#1e3a8a', opacity: 0.85, pointerEvents: 'none', zIndex: 1 }}
-              viewBox="0 0 32 32"
-              fill="none"
-              stroke="currentColor"
-            >
-              <path d="M30 30V10C30 5.58172 26.4183 2 22 2H2" strokeWidth="2.5" strokeLinecap="round" />
-              <path d="M25 25V12C25 9.23858 22.7614 7 20 7H7" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 2" />
-              <circle cx="20" cy="12" r="3" fill="#b91c1c" stroke="none" />
-            </svg>
-            <svg
-              style={{ position: 'absolute', bottom: 14, left: 14, width: 32, height: 32, color: '#1e3a8a', opacity: 0.85, pointerEvents: 'none', zIndex: 1 }}
-              viewBox="0 0 32 32"
-              fill="none"
-              stroke="currentColor"
-            >
-              <path d="M2 2V22C2 26.4183 5.58172 30 10 30H30" strokeWidth="2.5" strokeLinecap="round" />
-              <path d="M7 7V20C7 22.7614 9.23858 25 12 25H25" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 2" />
-              <circle cx="12" cy="20" r="3" fill="#b91c1c" stroke="none" />
-            </svg>
-            <svg
-              style={{ position: 'absolute', bottom: 14, right: 14, width: 32, height: 32, color: '#1e3a8a', opacity: 0.85, pointerEvents: 'none', zIndex: 1 }}
-              viewBox="0 0 32 32"
-              fill="none"
-              stroke="currentColor"
-            >
-              <path d="M30 2V22C30 26.4183 26.4183 30 22 30H2" strokeWidth="2.5" strokeLinecap="round" />
-              <path d="M25 7V20C25 22.7614 22.7614 25 20 25H7" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 2" />
-              <circle cx="20" cy="20" r="3" fill="#b91c1c" stroke="none" />
-            </svg>
-
-            {/* Background School Logo Watermark Layer */}
-            <div
-              aria-hidden="true"
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                pointerEvents: 'none',
-                userSelect: 'none',
-                zIndex: 0,
+                position: 'relative',
+                overflow: 'visible',
+                padding: dynamicConfig.cardPadding,
+                backgroundColor: '#FFF2F2',
+                background: '#FFF2F2',
+                border: '4px double #1e3a8a',
+                outline: '2px solid #b91c1c',
+                outlineOffset: '-7px',
+                borderRadius: '14px',
+                boxShadow: '0 12px 45px rgba(30, 58, 138, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.6)',
+                zoom: screenScale,
+                WebkitZoom: screenScale,
               }}
             >
-              {activeSchoolLogo ? (
-                <img
-                  src={activeSchoolLogo}
-                  alt="School Watermark"
-                  style={{
-                    width: '320px',
-                    height: '320px',
-                    objectFit: 'contain',
-                    opacity: 0.07,
-                  }}
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                />
-              ) : (
-                <div
-                  style={{
-                    transform: 'rotate(-25deg)',
-                    opacity: 0.04,
-                    fontSize: '32px',
-                    fontWeight: '900',
-                    color: '#1e3a8a',
-                    textAlign: 'center',
-                    lineHeight: '1.8',
-                  }}
-                >
-                  {(getSchoolNameByClass(selectedStudent.class, schoolProfile) || schoolProfile?.schoolName || '').toUpperCase()}
-                </div>
-              )}
-            </div>
+              {/* Top Navy/Crimson Accent Bar */}
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'linear-gradient(90deg, #1e3a8a, #b91c1c, #1e3a8a)' }} />
 
-            <div className="transcript-content-body" style={{ position: 'relative', zIndex: 1 }}>
-              {/* Header Section — Centered */}
-              <div className="transcript-header-section" style={{ textAlign: 'center', marginBottom: dynamicConfig.headerMargin }}>
-                <h1 className="transcript-school-name" style={{ margin: 0, fontSize: dynamicConfig.schoolNameFont, fontWeight: '800', color: '#1e3a8a', fontFamily: "'Times New Roman', serif", textTransform: 'uppercase', letterSpacing: '-0.3px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                  {getSchoolNameByClass(selectedStudent.class, schoolProfile) || schoolProfile?.schoolName}
-                </h1>
-                {(schoolProfile?.location || window.localStorage.getItem('schoolLocation')) && (
-                  <p className="transcript-school-location" style={{ margin: '4px 0 2px', fontSize: '12px', color: '#475569', fontWeight: '600', wordBreak: 'break-word' }}>
-                    📍 {schoolProfile?.location || window.localStorage.getItem('schoolLocation')}
-                  </p>
+              {/* Inner Decorative Accent Frame */}
+              <div
+                className="transcript-inner-border"
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  left: '12px',
+                  right: '12px',
+                  bottom: '12px',
+                  border: '1px dashed #1e3a8a',
+                  borderRadius: '10px',
+                  pointerEvents: 'none',
+                  zIndex: 0,
+                  opacity: 0.4,
+                }}
+              />
+
+              {/* Ornate Corner Flourishes */}
+              <svg
+                style={{ position: 'absolute', top: 14, left: 14, width: 32, height: 32, color: '#1e3a8a', opacity: 0.85, pointerEvents: 'none', zIndex: 1 }}
+                viewBox="0 0 32 32"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path d="M2 30V10C2 5.58172 5.58172 2 10 2H30" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M7 25V12C7 9.23858 9.23858 7 12 7H25" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 2" />
+                <circle cx="12" cy="12" r="3" fill="#b91c1c" stroke="none" />
+              </svg>
+              <svg
+                style={{ position: 'absolute', top: 14, right: 14, width: 32, height: 32, color: '#1e3a8a', opacity: 0.85, pointerEvents: 'none', zIndex: 1 }}
+                viewBox="0 0 32 32"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path d="M30 30V10C30 5.58172 26.4183 2 22 2H2" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M25 25V12C25 9.23858 22.7614 7 20 7H7" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 2" />
+                <circle cx="20" cy="12" r="3" fill="#b91c1c" stroke="none" />
+              </svg>
+              <svg
+                style={{ position: 'absolute', bottom: 14, left: 14, width: 32, height: 32, color: '#1e3a8a', opacity: 0.85, pointerEvents: 'none', zIndex: 1 }}
+                viewBox="0 0 32 32"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path d="M2 2V22C2 26.4183 5.58172 30 10 30H30" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M7 7V20C7 22.7614 9.23858 25 12 25H25" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 2" />
+                <circle cx="12" cy="20" r="3" fill="#b91c1c" stroke="none" />
+              </svg>
+              <svg
+                style={{ position: 'absolute', bottom: 14, right: 14, width: 32, height: 32, color: '#1e3a8a', opacity: 0.85, pointerEvents: 'none', zIndex: 1 }}
+                viewBox="0 0 32 32"
+                fill="none"
+                stroke="currentColor"
+              >
+                <path d="M30 2V22C30 26.4183 26.4183 30 22 30H2" strokeWidth="2.5" strokeLinecap="round" />
+                <path d="M25 7V20C25 22.7614 22.7614 25 20 25H7" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="3 2" />
+                <circle cx="20" cy="20" r="3" fill="#b91c1c" stroke="none" />
+              </svg>
+
+              {/* Background School Logo Watermark Layer */}
+              <div
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  pointerEvents: 'none',
+                  userSelect: 'none',
+                  zIndex: 0,
+                }}
+              >
+                {activeSchoolLogo ? (
+                  <img
+                    src={activeSchoolLogo}
+                    alt="School Watermark"
+                    style={{
+                      width: '320px',
+                      height: '320px',
+                      objectFit: 'contain',
+                      opacity: 0.07,
+                    }}
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      transform: 'rotate(-25deg)',
+                      opacity: 0.04,
+                      fontSize: '32px',
+                      fontWeight: '900',
+                      color: '#1e3a8a',
+                      textAlign: 'center',
+                      lineHeight: '1.8',
+                    }}
+                  >
+                    {(getSchoolNameByClass(selectedStudent.class, schoolProfile) || schoolProfile?.schoolName || '').toUpperCase()}
+                  </div>
                 )}
-                {(schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')) && (
-                  <p className="transcript-school-eiin" style={{ margin: '2px 0 4px', fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
-                    EIIN: {schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')}
-                  </p>
-                )}
-                <div className="transcript-exam-title" style={{ fontSize: '13px', fontWeight: '800', color: '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                  {activeExamName}
-                </div>
-                <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
-                  Date: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                </p>
               </div>
 
-              {/* Horizontal Navy Line */}
-              <div style={{ borderBottom: '2px solid #1e3a8a', marginBottom: dynamicConfig.dividerMargin }} />
-
-              {/* Student Details Grid, Grading System & Photo */}
-              <div className="transcript-student-section" style={{ marginBottom: dynamicConfig.studentSectionMargin }}>
-                {/* Left Student Info Fields with dotted borders */}
-                <div className="transcript-student-grid">
-                  {studentInfoRows.map((info, idx) => (
-                    <div key={idx} className="transcript-info-field" style={{ padding: dynamicConfig.infoPadding }}>
-                      <span className="transcript-info-label" style={{ fontSize: dynamicConfig.infoLabelFont }}>
-                        {info.label}
-                      </span>
-                      <span className="transcript-info-value" style={{ fontSize: dynamicConfig.infoValueFont }}>
-                        {info.value}
-                      </span>
-                    </div>
-                  ))}
+              <div className="transcript-content-body" style={{ position: 'relative', zIndex: 1 }}>
+                {/* Header Section — Centered */}
+                <div className="transcript-header-section" style={{ textAlign: 'center', marginBottom: dynamicConfig.headerMargin }}>
+                  <h1 className="transcript-school-name" style={{ margin: 0, fontSize: dynamicConfig.schoolNameFont, fontWeight: '800', color: '#1e3a8a', fontFamily: "'Times New Roman', serif", textTransform: 'uppercase', letterSpacing: '-0.3px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                    {getSchoolNameByClass(selectedStudent.class, schoolProfile) || schoolProfile?.schoolName}
+                  </h1>
+                  {(schoolProfile?.location || window.localStorage.getItem('schoolLocation')) && (
+                    <p className="transcript-school-location" style={{ margin: '4px 0 2px', fontSize: '12px', color: '#475569', fontWeight: '600', wordBreak: 'break-word' }}>
+                      📍 {schoolProfile?.location || window.localStorage.getItem('schoolLocation')}
+                    </p>
+                  )}
+                  {(schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')) && (
+                    <p className="transcript-school-eiin" style={{ margin: '2px 0 4px', fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+                      EIIN: {schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')}
+                    </p>
+                  )}
+                  <div className="transcript-exam-title" style={{ fontSize: '13px', fontWeight: '800', color: '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                    {activeExamName}
+                  </div>
+                  <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
+                    Date: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </p>
                 </div>
 
-                {/* Middle: Grading System Reference Table */}
-                <div className="transcript-grading-box">
-                  <div className="transcript-grading-header">
-                    Grading System
+                {/* Horizontal Navy Line */}
+                <div style={{ borderBottom: '2px solid #1e3a8a', marginBottom: dynamicConfig.dividerMargin }} />
+
+                {/* Student Details Grid, Grading System & Photo */}
+                <div className="transcript-student-section" style={{ marginBottom: dynamicConfig.studentSectionMargin }}>
+                  {/* Left Student Info Fields with dotted borders */}
+                  <div className="transcript-student-grid">
+                    {studentInfoRows.map((info, idx) => (
+                      <div key={idx} className="transcript-info-field" style={{ padding: dynamicConfig.infoPadding }}>
+                        <span className="transcript-info-label" style={{ fontSize: dynamicConfig.infoLabelFont }}>
+                          {info.label}
+                        </span>
+                        <span className="transcript-info-value" style={{ fontSize: dynamicConfig.infoValueFont }}>
+                          {info.value}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: dynamicConfig.gradingFont }}>
+
+                  {/* Middle: Grading System Reference Table */}
+                  <div className="transcript-grading-box">
+                    <div className="transcript-grading-header">
+                      Grading System
+                    </div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: dynamicConfig.gradingFont }}>
+                      <thead>
+                        <tr style={{ background: '#e0ecfb', borderBottom: '1.5px solid #1e3a8a' }}>
+                          <th style={{ padding: dynamicConfig.gradingPadding, color: '#1e3a8a', fontWeight: '800', fontSize: dynamicConfig.gradingFont, borderRight: '1px solid #1e3a8a' }}>Class Interval</th>
+                          <th style={{ padding: dynamicConfig.gradingPadding, color: '#1e3a8a', fontWeight: '800', fontSize: dynamicConfig.gradingFont, borderRight: '1px solid #1e3a8a' }}>Grade</th>
+                          <th style={{ padding: dynamicConfig.gradingPadding, color: '#1e3a8a', fontWeight: '800', fontSize: dynamicConfig.gradingFont }}>G.P.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>80-100</td>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#6d28d9', borderRight: '1px solid #cbd5e1' }}>A+</td>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>5.00</td>
+                        </tr>
+                        <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>70-79</td>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#1d4ed8', borderRight: '1px solid #cbd5e1' }}>A</td>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>4.00</td>
+                        </tr>
+                        <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>60-69</td>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#0369a1', borderRight: '1px solid #cbd5e1' }}>A-</td>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>3.5</td>
+                        </tr>
+                        <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>50-59</td>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#15803d', borderRight: '1px solid #cbd5e1' }}>B</td>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>3.00</td>
+                        </tr>
+                        <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>40-49</td>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#b45309', borderRight: '1px solid #cbd5e1' }}>C</td>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>2.00</td>
+                        </tr>
+                        <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>33-40</td>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#c2410c', borderRight: '1px solid #cbd5e1' }}>D</td>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>1.00</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>0-32</td>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#b91c1c', borderRight: '1px solid #cbd5e1' }}>F</td>
+                          <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>0.00</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Right Photo Card */}
+                  <div className="transcript-photo-box" style={{ width: dynamicConfig.photoWidth, height: dynamicConfig.photoHeight }}>
+                    {selectedStudent.profilePic ? (
+                      <img src={selectedStudent.profilePic} alt="Student" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div className="transcript-photo-placeholder" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#0284c7' }}>
+                        <svg width="36" height="36" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                        </svg>
+                        <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginTop: '2px', letterSpacing: '0.5px' }}>PHOTO</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Subject Performance Table */}
+                <div className="transcript-table-container" style={{ width: '100%', marginBottom: dynamicConfig.tableMargin, border: '1.5px solid #1e3a8a', borderRadius: '8px', overflow: 'hidden', background: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                  <table className="transcript-performance-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', background: '#ffffff' }}>
                     <thead>
-                      <tr style={{ background: '#e0ecfb', borderBottom: '1.5px solid #1e3a8a' }}>
-                        <th style={{ padding: dynamicConfig.gradingPadding, color: '#1e3a8a', fontWeight: '800', fontSize: dynamicConfig.gradingFont, borderRight: '1px solid #1e3a8a' }}>Class Interval</th>
-                        <th style={{ padding: dynamicConfig.gradingPadding, color: '#1e3a8a', fontWeight: '800', fontSize: dynamicConfig.gradingFont, borderRight: '1px solid #1e3a8a' }}>Grade</th>
-                        <th style={{ padding: dynamicConfig.gradingPadding, color: '#1e3a8a', fontWeight: '800', fontSize: dynamicConfig.gradingFont }}>G.P.</th>
+                      <tr style={{ background: '#1e3a8a' }}>
+                        <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1.5px solid #1e3a8a' }}>SUBJECT</th>
+                        <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>MARKS</th>
+                        <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>HIGHEST</th>
+                        <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>GRADE</th>
+                        <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>STATUS</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>80-100</td>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#6d28d9', borderRight: '1px solid #cbd5e1' }}>A+</td>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>5.00</td>
-                      </tr>
-                      <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>70-79</td>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#1d4ed8', borderRight: '1px solid #cbd5e1' }}>A</td>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>4.00</td>
-                      </tr>
-                      <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>60-69</td>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#0369a1', borderRight: '1px solid #cbd5e1' }}>A-</td>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>3.5</td>
-                      </tr>
-                      <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>50-59</td>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#15803d', borderRight: '1px solid #cbd5e1' }}>B</td>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>3.00</td>
-                      </tr>
-                      <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>40-49</td>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#b45309', borderRight: '1px solid #cbd5e1' }}>C</td>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>2.00</td>
-                      </tr>
-                      <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>33-40</td>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#c2410c', borderRight: '1px solid #cbd5e1' }}>D</td>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>1.00</td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>0-32</td>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#b91c1c', borderRight: '1px solid #cbd5e1' }}>F</td>
-                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>0.00</td>
+                      {reportCardSubjectList.map((subject, idx) => {
+                        const rule = selectedExamSession?.subjectRules?.[subject.subject] || { totalMarks: 100, passMarks: 33 };
+                        const resolved = resolveRuleTotals(rule);
+                        const hasCqMcqData = !subject.isPending && subject.cqMarks != null && Number.isFinite(Number(subject.cqMarks));
+                        const hasMcq = resolved.hasMcq && subject.mcqMarks != null;
+                        const highestMark = subject.highestMark ?? subject.highestMarks ?? highestMarksMap[subject.subject] ?? (!subject.isPending ? (subject.marks ?? '—') : '—');
+
+                        return (
+                          <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                            <td style={{ padding: dynamicConfig.tableCellPadding, fontSize: dynamicConfig.subjectFont, fontWeight: '700', color: '#1e293b' }}>
+                              {subject.subject}
+                            </td>
+                            <td style={{ padding: dynamicConfig.tableCellPadding, textAlign: 'center' }}>
+                              {subject.isPending ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#94a3b8', fontWeight: '700' }}>
+                                  — <span style={{ fontSize: '9px', background: '#fef3c7', color: '#d97706', padding: '1px 5px', borderRadius: '4px', border: '1px solid #fcd34d', fontWeight: '800' }}>Pending</span>
+                                </span>
+                              ) : (
+                                <>
+                                  <div>
+                                    <span style={{ fontSize: dynamicConfig.marksFont, fontWeight: '800', color: '#1d4ed8' }}>{subject.marks}</span>
+                                    <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', marginLeft: '2px' }}>/{resolved.totalMarks}</span>
+                                  </div>
+                                  {hasCqMcqData && (
+                                    <div style={{ fontSize: '9.5px', color: '#64748b', fontWeight: '600', marginTop: '1px' }}>
+                                      CQ:{subject.cqMarks}/{rule.cqTotal ?? 70}
+                                      {hasMcq && ` MCQ:${subject.mcqMarks}/${rule.mcqTotal ?? 30}`}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </td>
+                            <td style={{ padding: dynamicConfig.tableCellPadding, textAlign: 'center' }}>
+                              <span style={{ fontSize: dynamicConfig.highestMarkFont, fontWeight: '800', color: '#0f172a' }}>
+                                {highestMark}
+                              </span>
+                            </td>
+                            <td style={{ padding: dynamicConfig.tableCellPadding, textAlign: 'center' }}>
+                              {subject.isPending ? (
+                                <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: '6px', background: '#f1f5f9', color: '#94a3b8', fontSize: '11px', fontWeight: '700' }}>
+                                  —
+                                </span>
+                              ) : (
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: dynamicConfig.badgePadding,
+                                  borderRadius: '6px',
+                                  background: {
+                                    'A+': '#6d28d9',
+                                    'A': '#1d4ed8',
+                                    'A-': '#0369a1',
+                                    'B': '#15803d',
+                                    'C': '#b45309',
+                                    'D': '#c2410c',
+                                    'F': '#b91c1c',
+                                  }[subject.grade] || '#6d28d9',
+                                  color: '#fff',
+                                  fontSize: dynamicConfig.badgeFont,
+                                  fontWeight: '800',
+                                  minWidth: '28px',
+                                  textAlign: 'center',
+                                }}>
+                                  {subject.grade}
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: dynamicConfig.tableCellPadding, textAlign: 'center' }}>
+                              {subject.isPending ? (
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '2px 10px',
+                                  borderRadius: '20px',
+                                  background: '#fef3c7',
+                                  color: '#d97706',
+                                  border: '1px solid #fcd34d',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                }}>
+                                  Pending
+                                </span>
+                              ) : (
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '2px 10px',
+                                  borderRadius: '20px',
+                                  background: subject.status === 'Fail' ? '#fee2e2' : '#dcfce7',
+                                  color: subject.status === 'Fail' ? '#b91c1c' : '#15803d',
+                                  border: subject.status === 'Fail' ? '1px solid #fca5a5' : '1px solid #86efac',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                }}>
+                                  {subject.status}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {/* Grand Total Footer Row */}
+                      <tr className="transcript-grand-total-row" style={{ background: '#ffffff', borderTop: '2px solid #0f172a' }}>
+                        <td style={{ padding: dynamicConfig.grandTotalPadding, fontWeight: '800', fontSize: dynamicConfig.grandTotalFont, color: '#0f172a' }}>
+                          Grand Total
+                        </td>
+                        <td style={{ padding: dynamicConfig.grandTotalPadding, textAlign: 'center', fontWeight: '800', fontSize: dynamicConfig.grandTotalFont, color: '#0f172a' }}>
+                          {resultSummary.totalMarks} <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>/{resultSummary.maxMarks}</span>
+                        </td>
+                        <td style={{ padding: dynamicConfig.grandTotalPadding, textAlign: 'center', fontWeight: '800', fontSize: dynamicConfig.grandTotalFont, color: '#0f172a' }}>
+                          {classHighestTotalMarks ?? '—'}
+                        </td>
+                        <td style={{ padding: dynamicConfig.grandTotalPadding }} />
+                        <td style={{ padding: dynamicConfig.grandTotalPadding }} />
                       </tr>
                     </tbody>
                   </table>
                 </div>
 
-                {/* Right Photo Card */}
-                <div className="transcript-photo-box" style={{ width: dynamicConfig.photoWidth, height: dynamicConfig.photoHeight }}>
-                  {selectedStudent.profilePic ? (
-                    <img src={selectedStudent.profilePic} alt="Student" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <div className="transcript-photo-placeholder" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#0284c7' }}>
-                      <svg width="36" height="36" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                      </svg>
-                      <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginTop: '2px', letterSpacing: '0.5px' }}>PHOTO</span>
+                {/* 5 Summary Metric Cards */}
+                <div className="transcript-summary-grid" style={{ marginBottom: dynamicConfig.summaryMargin }}>
+                  <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
+                    <div className="transcript-summary-label">
+                      PERCENTAGE
                     </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Subject Performance Table */}
-              <div className="transcript-table-container" style={{ width: '100%', marginBottom: dynamicConfig.tableMargin, border: '1.5px solid #1e3a8a', borderRadius: '8px', overflow: 'hidden', background: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-                <table className="transcript-performance-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', background: '#ffffff' }}>
-                  <thead>
-                    <tr style={{ background: '#1e3a8a' }}>
-                      <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1.5px solid #1e3a8a' }}>SUBJECT</th>
-                      <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>MARKS</th>
-                      <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>HIGHEST</th>
-                      <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>GRADE</th>
-                      <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reportCardSubjectList.map((subject, idx) => {
-                      const rule = selectedExamSession?.subjectRules?.[subject.subject] || { totalMarks: 100, passMarks: 33 };
-                      const resolved = resolveRuleTotals(rule);
-                      const hasCqMcqData = !subject.isPending && subject.cqMarks != null && Number.isFinite(Number(subject.cqMarks));
-                      const hasMcq = resolved.hasMcq && subject.mcqMarks != null;
-                      const highestMark = subject.highestMark ?? subject.highestMarks ?? highestMarksMap[subject.subject] ?? (!subject.isPending ? (subject.marks ?? '—') : '—');
-
-                      return (
-                        <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: dynamicConfig.tableCellPadding, fontSize: dynamicConfig.subjectFont, fontWeight: '700', color: '#1e293b' }}>
-                            {subject.subject}
-                          </td>
-                          <td style={{ padding: dynamicConfig.tableCellPadding, textAlign: 'center' }}>
-                            {subject.isPending ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#94a3b8', fontWeight: '700' }}>
-                                — <span style={{ fontSize: '9px', background: '#fef3c7', color: '#d97706', padding: '1px 5px', borderRadius: '4px', border: '1px solid #fcd34d', fontWeight: '800' }}>Pending</span>
-                              </span>
-                            ) : (
-                              <>
-                                <div>
-                                  <span style={{ fontSize: dynamicConfig.marksFont, fontWeight: '800', color: '#1d4ed8' }}>{subject.marks}</span>
-                                  <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', marginLeft: '2px' }}>/{resolved.totalMarks}</span>
-                                </div>
-                                {hasCqMcqData && (
-                                  <div style={{ fontSize: '9.5px', color: '#64748b', fontWeight: '600', marginTop: '1px' }}>
-                                    CQ:{subject.cqMarks}/{rule.cqTotal ?? 70}
-                                    {hasMcq && ` MCQ:${subject.mcqMarks}/${rule.mcqTotal ?? 30}`}
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </td>
-                          <td style={{ padding: dynamicConfig.tableCellPadding, textAlign: 'center' }}>
-                            <span style={{ fontSize: dynamicConfig.highestMarkFont, fontWeight: '800', color: '#0f172a' }}>
-                              {highestMark}
-                            </span>
-                          </td>
-                          <td style={{ padding: dynamicConfig.tableCellPadding, textAlign: 'center' }}>
-                            {subject.isPending ? (
-                              <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: '6px', background: '#f1f5f9', color: '#94a3b8', fontSize: '11px', fontWeight: '700' }}>
-                                —
-                              </span>
-                            ) : (
-                              <span style={{
-                                display: 'inline-block',
-                                padding: dynamicConfig.badgePadding,
-                                borderRadius: '6px',
-                                background: {
-                                  'A+': '#6d28d9',
-                                  'A': '#1d4ed8',
-                                  'A-': '#0369a1',
-                                  'B': '#15803d',
-                                  'C': '#b45309',
-                                  'D': '#c2410c',
-                                  'F': '#b91c1c',
-                                }[subject.grade] || '#6d28d9',
-                                color: '#fff',
-                                fontSize: dynamicConfig.badgeFont,
-                                fontWeight: '800',
-                                minWidth: '28px',
-                                textAlign: 'center',
-                              }}>
-                                {subject.grade}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: dynamicConfig.tableCellPadding, textAlign: 'center' }}>
-                            {subject.isPending ? (
-                              <span style={{
-                                display: 'inline-block',
-                                padding: '2px 10px',
-                                borderRadius: '20px',
-                                background: '#fef3c7',
-                                color: '#d97706',
-                                border: '1px solid #fcd34d',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                              }}>
-                                Pending
-                              </span>
-                            ) : (
-                              <span style={{
-                                display: 'inline-block',
-                                padding: '2px 10px',
-                                borderRadius: '20px',
-                                background: subject.status === 'Fail' ? '#fee2e2' : '#dcfce7',
-                                color: subject.status === 'Fail' ? '#b91c1c' : '#15803d',
-                                border: subject.status === 'Fail' ? '1px solid #fca5a5' : '1px solid #86efac',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                              }}>
-                                {subject.status}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-
-                    {/* Grand Total Footer Row */}
-                    <tr className="transcript-grand-total-row" style={{ background: '#ffffff', borderTop: '2px solid #0f172a' }}>
-                      <td style={{ padding: dynamicConfig.grandTotalPadding, fontWeight: '800', fontSize: dynamicConfig.grandTotalFont, color: '#0f172a' }}>
-                        Grand Total
-                      </td>
-                      <td style={{ padding: dynamicConfig.grandTotalPadding, textAlign: 'center', fontWeight: '800', fontSize: dynamicConfig.grandTotalFont, color: '#0f172a' }}>
-                        {resultSummary.totalMarks} <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>/{resultSummary.maxMarks}</span>
-                      </td>
-                      <td style={{ padding: dynamicConfig.grandTotalPadding, textAlign: 'center', fontWeight: '800', fontSize: dynamicConfig.grandTotalFont, color: '#0f172a' }}>
-                        {classHighestTotalMarks ?? '—'}
-                      </td>
-                      <td style={{ padding: dynamicConfig.grandTotalPadding }} />
-                      <td style={{ padding: dynamicConfig.grandTotalPadding }} />
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              {/* 5 Summary Metric Cards */}
-              <div className="transcript-summary-grid" style={{ marginBottom: dynamicConfig.summaryMargin }}>
-                <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
-                  <div className="transcript-summary-label">
-                    PERCENTAGE
+                    <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
+                      {resultSummary.percentage.toFixed(1)}%
+                    </div>
                   </div>
-                  <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
-                    {resultSummary.percentage.toFixed(1)}%
+
+                  <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
+                    <div className="transcript-summary-label">
+                      PROFICIENCY
+                    </div>
+                    <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
+                      {!selectedStudent.isComplete ? 'Result Pending' : (resultSummary.status === 'Fail' ? 'Needs Improvement' : (resultSummary.proficiency || 'Outstanding'))}
+                    </div>
+                  </div>
+
+                  <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
+                    <div className="transcript-summary-label">
+                      GRADE (GPA)
+                    </div>
+                    <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
+                      {!selectedStudent.isComplete ? 'Pending' : (resultSummary.status === 'Fail' ? 'F (0.00)' : `${resultSummary.averageGrade} (${resultSummary.gradePoint.toFixed(2)})`)}
+                    </div>
+                  </div>
+
+                  <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
+                    <div className="transcript-summary-label">
+                      CLASS RANK
+                    </div>
+                    <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
+                      {!selectedStudent.isComplete ? 'N/A' : (selectedStudent.position ? `#${selectedStudent.position}` : 'N/A')}
+                    </div>
+                  </div>
+
+                  <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
+                    <div className="transcript-summary-label">
+                      TOTAL STUDENTS
+                    </div>
+                    <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
+                      {rankedFilteredResults.length || '—'}
+                    </div>
                   </div>
                 </div>
 
-                <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
-                  <div className="transcript-summary-label">
-                    PROFICIENCY
+                {/* Bottom Signatures Section */}
+                <div
+                  className="transcript-footer"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: 'clamp(6px, 2vw, 24px)',
+                    alignItems: 'end',
+                    marginTop: dynamicConfig.footerMarginTop,
+                    paddingTop: '8px',
+                    marginBottom: '4px',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  {/* Column 1: Class Teacher */}
+                  <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+                    <div className="transcript-signature-spacer" style={{ height: dynamicConfig.signatureSpacerHeight, minHeight: dynamicConfig.signatureSpacerHeight, width: '100%' }} />
+                    <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: dynamicConfig.signatureLineMargin }} />
+                    <span className="transcript-signature-label" style={{ fontSize: dynamicConfig.signatureLabelFont, fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
+                      Class Teacher
+                    </span>
                   </div>
-                  <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
-                    {!selectedStudent.isComplete ? 'Result Pending' : (resultSummary.status === 'Fail' ? 'Needs Improvement' : (resultSummary.proficiency || 'Outstanding'))}
-                  </div>
-                </div>
 
-                <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
-                  <div className="transcript-summary-label">
-                    GRADE (GPA)
+                  {/* Column 2: Guardian */}
+                  <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+                    <div className="transcript-signature-spacer" style={{ height: dynamicConfig.signatureSpacerHeight, minHeight: dynamicConfig.signatureSpacerHeight, width: '100%' }} />
+                    <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: dynamicConfig.signatureLineMargin }} />
+                    <span className="transcript-signature-label" style={{ fontSize: dynamicConfig.signatureLabelFont, fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
+                      Guardian
+                    </span>
                   </div>
-                  <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
-                    {!selectedStudent.isComplete ? 'Pending' : (resultSummary.status === 'Fail' ? 'F (0.00)' : `${resultSummary.averageGrade} (${resultSummary.gradePoint.toFixed(2)})`)}
-                  </div>
-                </div>
 
-                <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
-                  <div className="transcript-summary-label">
-                    CLASS RANK
+                  {/* Column 3: Head Teacher */}
+                  <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
+                    <div className="transcript-signature-spacer" style={{ height: dynamicConfig.signatureSpacerHeight, minHeight: dynamicConfig.signatureSpacerHeight, width: '100%' }} />
+                    <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: dynamicConfig.signatureLineMargin }} />
+                    <span className="transcript-signature-label" style={{ fontSize: dynamicConfig.signatureLabelFont, fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
+                      Head Teacher
+                    </span>
                   </div>
-                  <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
-                    {!selectedStudent.isComplete ? 'N/A' : (selectedStudent.position ? `#${selectedStudent.position}` : 'N/A')}
-                  </div>
-                </div>
-
-                <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
-                  <div className="transcript-summary-label">
-                    TOTAL STUDENTS
-                  </div>
-                  <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
-                    {rankedFilteredResults.length || '—'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Bottom Signatures Section */}
-              <div
-                className="transcript-footer"
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: 'clamp(6px, 2vw, 24px)',
-                  alignItems: 'end',
-                  marginTop: dynamicConfig.footerMarginTop,
-                  paddingTop: '8px',
-                  marginBottom: '4px',
-                  width: '100%',
-                  boxSizing: 'border-box',
-                }}
-              >
-                {/* Column 1: Class Teacher */}
-                <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
-                  <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: dynamicConfig.signatureLineMargin }} />
-                  <span className="transcript-signature-label" style={{ fontSize: dynamicConfig.signatureLabelFont, fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
-                    Class Teacher
-                  </span>
-                </div>
-
-                {/* Column 2: Guardian */}
-                <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
-                  <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: dynamicConfig.signatureLineMargin }} />
-                  <span className="transcript-signature-label" style={{ fontSize: dynamicConfig.signatureLabelFont, fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
-                    Guardian
-                  </span>
-                </div>
-
-                {/* Column 3: Head Teacher */}
-                <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
-                  <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: dynamicConfig.signatureLineMargin }} />
-                  <span className="transcript-signature-label" style={{ fontSize: dynamicConfig.signatureLabelFont, fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
-                    Head Teacher
-                  </span>
                 </div>
               </div>
             </div>
-          </div>
-        </PrintContainer>
-
-        {/* Action Buttons below Marksheet (Hidden on print) */}
-        <div className="mark-sheet-actions mark-sheet-no-print" style={{
-          display: 'flex',
-          gap: '12px',
-          padding: '18px 22px',
-          background: '#f8fafc',
-          flexWrap: 'wrap',
-          borderRadius: '0 0 12px 12px',
-          border: '1px solid #e2e8f0',
-          borderTop: 'none',
-        }}>
-          <button
-            type="button"
-            onClick={handlePrintMarkSheet}
-            style={{
-              flex: 1,
-              minWidth: '160px',
-              padding: '12px 20px',
-              border: 'none',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #1d4ed8, #2563eb)',
-              color: '#fff',
-              cursor: 'pointer',
-              fontWeight: '800',
-              fontSize: '14px',
-              boxShadow: '0 4px 12px rgba(37,99,235,0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-            }}
-          >
-            📄 Save as PDF
-          </button>
-          <button
-            type="button"
-            onClick={handlePrintMarkSheet}
-            style={{
-              flex: 1,
-              minWidth: '160px',
-              padding: '12px 20px',
-              border: '1.5px solid #e2e8f0',
-              borderRadius: '10px',
-              background: '#fff',
-              color: '#1a2e4a',
-              cursor: 'pointer',
-              fontWeight: '700',
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-            }}
-          >
-            🖨 Download / Print
-          </button>
+          </PrintContainer>
         </div>
       </div>
     );
@@ -3356,6 +3446,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
           setExamSessions((prev) => {
             const next = [...prev.filter((e) => (e.examId || e.id || e.key) !== newExam.examId), createdExam];
             saveStoredExamSessions(next, activeSchoolId);
+            saveTeacherPanelData({ examSessions: next }, activeSchoolId).catch(() => { });
             return next;
           });
 
@@ -3699,22 +3790,22 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
             </button>
             <div style={{ minWidth: 0 }}>
               <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.01em', wordBreak: 'break-word' }}>
-                📄 {selectedStudent.name} — Marksheet
+                📄 {selectedStudent.name} — Download Marksheet PDF
               </h3>
               <span style={{ fontSize: '12px', color: '#93c5fd', fontWeight: '600', wordBreak: 'break-word', display: 'block' }}>
                 Class: {selectedStudent.class} | Roll: {selectedStudent.roll} | Exam: {activeExamName}
               </span>
             </div>
           </div>
-          <div className="transcript-top-header-right" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="transcript-top-header-right" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={handlePrintMarkSheet}
+              onClick={handleDownloadPdf}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: '#2563eb',
+                background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)',
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '10px',
@@ -3724,6 +3815,29 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                 fontSize: '13.5px',
                 boxShadow: '0 4px 12px rgba(37,99,235,0.4)',
               }}
+            >
+              📥 Download PDF
+            </button>
+            <button
+              type="button"
+              className="mark-sheet-desktop-only-btn"
+              onClick={handlePrintMarkSheet}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(255, 255, 255, 0.15)',
+                color: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                borderRadius: '10px',
+                padding: '9px 16px',
+                cursor: 'pointer',
+                fontWeight: '700',
+                fontSize: '13.5px',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)')}
             >
               🖨️ Print Marksheet
             </button>

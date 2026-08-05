@@ -813,8 +813,7 @@ h3,
   .tp-delete-bar,
   .sv-fee-row,
   .sv-message-header,
-  .sv-info-row,
-  .transcript-student-section {
+  .sv-info-row {
     flex-direction: column !important;
     align-items: stretch !important;
     gap: 10px !important;
@@ -827,7 +826,6 @@ h3,
   .fluid-grid-responsive,
   .sv-notice-grid,
   .sv-calendar-grid,
-  .transcript-student-grid,
   .stats-grid,
   .grid-2-col,
   .grid-3-col,

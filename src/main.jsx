@@ -163,7 +163,7 @@ try {
   root.render(
     <React.StrictMode>
       <ErrorBoundary>
-        <RouterComponent>
+        <RouterComponent future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <App />
         </RouterComponent>
       </ErrorBoundary>

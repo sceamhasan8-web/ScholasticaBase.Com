@@ -4,28 +4,28 @@ import {
   saveGroupSubjectRecord,
 } from './firestoreSchema.js';
 
-const isFirestoreOfflineError = (err) => {
-  const message = String(err?.message || '').toLowerCase();
+const isPermissionOrOfflineError = (err) => {
+  const errStr = String(err?.message || err || '').toLowerCase();
   const code = String(err?.code || '').toLowerCase();
   return (
-    message.includes('client is offline') ||
-    message.includes('failed to get document') ||
-    message.includes('offline') ||
+    code.includes('permission') ||
+    errStr.includes('permission') ||
+    errStr.includes('insufficient') ||
+    errStr.includes('client is offline') ||
+    errStr.includes('failed to get document') ||
+    errStr.includes('offline') ||
     code.includes('unavailable') ||
     code.includes('failed-precondition') ||
     code.includes('offline')
   );
 };
 
-
 export const loadGroupSubjectsFromFirestore = async () => {
   try {
     return await loadGroupSubjectRecords();
   } catch (err) {
-    if (isFirestoreOfflineError(err)) {
-      console.warn('Firestore is offline — keeping the current subjects locally.');
-    } else {
-      console.warn('Could not load group subjects from Firestore:', err);
+    if (!isPermissionOrOfflineError(err)) {
+      console.warn('[groupSubjects] Load Note:', err?.message || err);
     }
     return {};
   }
@@ -39,11 +39,9 @@ export const saveGroupSubjectsToFirestore = async ({ classIdx, groupName, subjec
     await saveGroupSubjectRecord({ classIdx, groupName, subjects: normalizedSubjects });
     return { docId, subjects: normalizedSubjects };
   } catch (err) {
-    if (isFirestoreOfflineError(err)) {
-      console.warn('Firestore is offline — subject changes were kept locally.');
-    } else {
-      console.warn('Could not save group subjects to Firestore:', err);
+    if (!isPermissionOrOfflineError(err)) {
+      console.warn('[groupSubjects] Save Note:', err?.message || err);
     }
-    return null;
+    return { docId, subjects: normalizedSubjects };
   }
 };

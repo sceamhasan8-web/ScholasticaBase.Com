@@ -1877,36 +1877,6 @@ button,
    23. MARKSHEET & TRANSCRIPT RESPONSIVE (Desktop, Tablet, Mobile)
    ───────────────────────────────────── */
 @media screen and (max-width: 768px) {
-  .transcript-container {
-    padding: clamp(12px, 3vw, 20px) !important;
-    margin: 8px 0 !important;
-  }
-
-  .transcript-student-section {
-    display: flex !important;
-    flex-direction: column-reverse !important;
-    align-items: center !important;
-    gap: 16px !important;
-  }
-
-  .transcript-student-grid {
-    grid-template-columns: 1fr !important;
-    gap: 8px !important;
-    width: 100% !important;
-  }
-
-  .transcript-summary-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 1px !important;
-    background: #cbd5e1 !important;
-  }
-
-  .transcript-summary-cell {
-    background: #f8fafc !important;
-    padding: 10px 8px !important;
-    border-right: none !important;
-  }
-
   .print-signatures-row,
   .transcript-footer {
     display: grid !important;

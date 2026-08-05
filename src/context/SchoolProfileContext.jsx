@@ -248,7 +248,6 @@ export function SchoolProfileProvider({ children }) {
 export function useSchoolProfile() {
     const context = useContext(SchoolProfileContext);
     if (!context) {
-        console.warn('[SchoolProfileContext] useSchoolProfile was called outside of SchoolProfileProvider. Returning safe fallback context.');
         return {
             schoolProfile: defaultSchoolProfile,
             setSchoolProfile: () => {},

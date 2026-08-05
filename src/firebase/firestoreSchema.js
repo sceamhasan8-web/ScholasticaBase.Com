@@ -11,7 +11,7 @@ import {
     where,
     writeBatch,
 } from 'firebase/firestore';
-import { signInAnonymously } from 'firebase/auth';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './firebase.js';
 import { saveAndVerifyDoc } from './writeVerification.js';
 import { getBranchKeyByClass } from '../utils/schoolResolver.js';
@@ -199,7 +199,7 @@ export const getTeacherPanelData = async (schoolId) => {
 };
 
 export const saveTeacherPanelData = (payload = {}, schoolId) => {
-    const { classes, teachers, teacherRoutines, timeSlots } = payload || {};
+    const { classes, teachers, teacherRoutines, timeSlots, examSessions, storedResults } = payload || {};
     const dataToSave = {
         schoolId: schoolId || 'PROGGA_DEFAULT',
         schemaVersion: 1,
@@ -209,6 +209,8 @@ export const saveTeacherPanelData = (payload = {}, schoolId) => {
     if (teachers !== undefined) dataToSave.teachers = teachers;
     if (teacherRoutines !== undefined) dataToSave.teacherRoutines = teacherRoutines;
     if (timeSlots !== undefined) dataToSave.timeSlots = timeSlots;
+    if (examSessions !== undefined) dataToSave.examSessions = examSessions;
+    if (storedResults !== undefined) dataToSave.storedResults = storedResults;
 
     return saveDocument(
         refs.teacherPanel(schoolId),
@@ -385,19 +387,28 @@ export const saveGroupSubjectRecord = ({ classId, className, classIdx, groupName
 };
 
 export const loadGroupSubjectRecords = async (schoolId) => {
-    const snapshot = await getDocs(collection(db, getSchoolCollectionName(COLLECTIONS.groupSubjects, schoolId)));
-    const result = {};
-    snapshot.forEach((item) => {
-        const data = item.data() || {};
-        result[item.id] = {
-            classIdx: data.classIdx,
-            classId: data.classId,
-            className: data.className,
-            groupName: data.groupName,
-            subjects: Array.isArray(data.subjects) ? data.subjects.filter(Boolean) : [],
-        };
-    });
-    return result;
+    try {
+        const snapshot = await getDocs(collection(db, getSchoolCollectionName(COLLECTIONS.groupSubjects, schoolId)));
+        const result = {};
+        snapshot.forEach((item) => {
+            const data = item.data() || {};
+            result[item.id] = {
+                classIdx: data.classIdx,
+                classId: data.classId,
+                className: data.className,
+                groupName: data.groupName,
+                subjects: Array.isArray(data.subjects) ? data.subjects.filter(Boolean) : [],
+            };
+        });
+        return result;
+    } catch (err) {
+        const errStr = String(err?.message || err || '').toLowerCase();
+        const code = String(err?.code || '').toLowerCase();
+        if (code.includes('permission') || errStr.includes('permission') || errStr.includes('insufficient')) {
+            return {};
+        }
+        throw err;
+    }
 };
 
 export const getStoredResultsFromLocal = (schoolId) => {
@@ -496,7 +507,7 @@ export const deleteResultEntry = (resultId, schoolId) => {
     removeStoredResultFromLocal(resultId, schoolId);
     return deleteDocument(refs.result(resultId, schoolId));
 };
-export const subscribeToResults = (onNext, onError, schoolId) => onSnapshot(collection(db, getSchoolCollectionName(COLLECTIONS.results, schoolId)), onNext, onError);
+
 export const getResultsForStudent = async (studentId, schoolId) => {
     const resultsQuery = query(collection(db, getSchoolCollectionName(COLLECTIONS.results, schoolId)), where('studentId', '==', studentId));
     const snapshot = await getDocs(resultsQuery);
@@ -571,10 +582,13 @@ export const saveExamSession = async (examSession, schoolId) => {
     const examId = examSession.examId || examSession.key || cleanId(`${examSession.name}-${examSession.targetClass}`, 'exam');
     const docData = withWriteMetadata({
         examId,
+        key: examId,
+        id: examId,
         schoolId: targetSchoolId || '',
         eiinNumber: examSession.eiinNumber || '',
         name: examSession.name,
         targetClass: examSession.targetClass,
+        targetGroup: examSession.targetGroup || 'General',
         branchKey: examSession.branchKey || '',
         subjectRules: examSession.subjectRules || {},
         status: examSession.status || 'active',
@@ -593,8 +607,155 @@ export const saveExamSession = async (examSession, schoolId) => {
 };
 
 export const deleteExamSession = (examId, schoolId) => deleteDocument(refs.exam(examId, schoolId));
-export const subscribeToExams = (onNext, onError, schoolId) => onSnapshot(collection(db, getSchoolCollectionName(COLLECTIONS.exams, schoolId)), onNext, onError);
-export const subscribeToTeacherPanelData = (onNext, onError, schoolId) => onSnapshot(refs.teacherPanel(schoolId), onNext, onError);
+
+export const subscribeToExams = (onNext, onError, schoolId) => {
+    let unsubDoc = null;
+    let unsubAuth = null;
+    let isCancelled = false;
+    let retryTimer = null;
+
+    const startListener = () => {
+        if (isCancelled) return;
+        try {
+            if (typeof unsubDoc === 'function') unsubDoc();
+            const collName = getSchoolCollectionName(COLLECTIONS.exams, schoolId);
+            unsubDoc = onSnapshot(
+                collection(db, collName),
+                (snapshot) => {
+                    if (!isCancelled && typeof onNext === 'function') onNext(snapshot);
+                },
+                (err) => {
+                    if (isCancelled) return;
+                    console.warn('[Firestore] Exams subscription warning:', err?.message || err);
+                    if (typeof onError === 'function') onError(err);
+                    retryTimer = setTimeout(() => {
+                        if (!isCancelled) startListener();
+                    }, 3000);
+                }
+            );
+        } catch (err) {
+            if (!isCancelled && typeof onError === 'function') onError(err);
+        }
+    };
+
+    ensureFirebaseAuth()
+        .then(() => {
+            if (!isCancelled) startListener();
+        })
+        .catch(() => {
+            if (!isCancelled) startListener();
+        });
+
+    if (auth) {
+        unsubAuth = onAuthStateChanged(auth, (user) => {
+            if (!isCancelled && user) startListener();
+        });
+    }
+
+    return () => {
+        isCancelled = true;
+        if (retryTimer) clearTimeout(retryTimer);
+        if (typeof unsubDoc === 'function') unsubDoc();
+        if (typeof unsubAuth === 'function') unsubAuth();
+    };
+};
+
+export const subscribeToResults = (onNext, onError, schoolId) => {
+    let unsubDoc = null;
+    let unsubAuth = null;
+    let isCancelled = false;
+    let retryTimer = null;
+
+    const startListener = () => {
+        if (isCancelled) return;
+        try {
+            if (typeof unsubDoc === 'function') unsubDoc();
+            const collName = getSchoolCollectionName(COLLECTIONS.results, schoolId);
+            unsubDoc = onSnapshot(
+                collection(db, collName),
+                (snapshot) => {
+                    if (!isCancelled && typeof onNext === 'function') onNext(snapshot);
+                },
+                (err) => {
+                    if (isCancelled) return;
+                    console.warn('[Firestore] Results subscription warning:', err?.message || err);
+                    if (typeof onError === 'function') onError(err);
+                    retryTimer = setTimeout(() => {
+                        if (!isCancelled) startListener();
+                    }, 3000);
+                }
+            );
+        } catch (err) {
+            if (!isCancelled && typeof onError === 'function') onError(err);
+        }
+    };
+
+    ensureFirebaseAuth()
+        .then(() => {
+            if (!isCancelled) startListener();
+        })
+        .catch(() => {
+            if (!isCancelled) startListener();
+        });
+
+    if (auth) {
+        unsubAuth = onAuthStateChanged(auth, (user) => {
+            if (!isCancelled && user) startListener();
+        });
+    }
+
+    return () => {
+        isCancelled = true;
+        if (retryTimer) clearTimeout(retryTimer);
+        if (typeof unsubDoc === 'function') unsubDoc();
+        if (typeof unsubAuth === 'function') unsubAuth();
+    };
+};
+export const subscribeToTeacherPanelData = (onNext, onError, schoolId) => {
+    let unsubDoc = null;
+    let unsubAuth = null;
+    let isCancelled = false;
+    let retryTimer = null;
+
+    const startListener = () => {
+        if (isCancelled) return;
+        try {
+            if (typeof unsubDoc === 'function') unsubDoc();
+            unsubDoc = onSnapshot(
+                refs.teacherPanel(schoolId),
+                (snapshot) => {
+                    if (!isCancelled && typeof onNext === 'function') onNext(snapshot);
+                },
+                (err) => {
+                    if (isCancelled) return;
+                    console.warn('[Firestore] TeacherPanel subscription warning:', err?.message || err);
+                    if (typeof onError === 'function') onError(err);
+                    retryTimer = setTimeout(() => {
+                        if (!isCancelled) startListener();
+                    }, 3000);
+                }
+            );
+        } catch (err) {
+            if (!isCancelled && typeof onError === 'function') onError(err);
+        }
+    };
+
+    ensureFirebaseAuth().catch(() => {});
+    startListener();
+
+    if (auth) {
+        unsubAuth = onAuthStateChanged(auth, (user) => {
+            if (!isCancelled && user) startListener();
+        });
+    }
+
+    return () => {
+        isCancelled = true;
+        if (retryTimer) clearTimeout(retryTimer);
+        if (typeof unsubDoc === 'function') unsubDoc();
+        if (typeof unsubAuth === 'function') unsubAuth();
+    };
+};
 
 /**
  * Provision a brand-new, isolated school portal in Firebase Firestore

@@ -629,7 +629,6 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    console.warn('[AuthContext] useAuth was called outside of AuthProvider. Returning safe fallback context.');
     return {
       user: null,
       loading: false,
