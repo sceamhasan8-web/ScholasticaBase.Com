@@ -340,9 +340,9 @@ export function AuthProvider({ children }) {
       throw new Error('Incorrect username or password.');
     }
 
-    if (!account.isSuperAdmin && normalizedRole && normalizedRole !== String(account.role || '').trim()) {
-      throw new Error('Selected login role does not match the account role.');
-    }
+    const effectiveRole = account.isSuperAdmin
+      ? 'admin'
+      : String(account.role || normalizedRole || 'student').trim().toLowerCase();
 
     if (normalizedAccessMode === 'classTeacher') {
       if (!account.classTeacherKey || String(account.classTeacherKey).trim() !== normalizedLoginKey) {
@@ -367,7 +367,7 @@ export function AuthProvider({ children }) {
     const nextUser = {
       userId: account.userId || trimmedUserId,
       name: account.name,
-      role: account.role,
+      role: effectiveRole,
       // Super Admin flag — propagated from the account record
       isSuperAdmin: !!account.isSuperAdmin,
       accessMode: normalizedRole === 'teacher' ? (normalizedAccessMode || 'readOnly') : 'full',
@@ -406,7 +406,7 @@ export function AuthProvider({ children }) {
     navigate('/login', { replace: true });
   };
 
-  const createUser = async ({ userId, name, password, role, isSuperAdmin = false, classTeacherKey = '', classTeacherClassIdxList = [], classTeacherClassNames = [], classTeacherClassIdx = '', classTeacherClassName = '' }) => {
+  const createUser = async ({ userId, name, password, role, isSuperAdmin = false, classTeacherKey = '', classTeacherClassIdxList = [], classTeacherClassNames = [], classTeacherClassIdx = '', classTeacherClassName = '', allowUpdate = false }) => {
     const normalizedUserId = String(userId || '').trim();
     const normalizedName = String(name || '').trim();
     const normalizedPassword = String(password || '').trim();
@@ -423,9 +423,12 @@ export function AuthProvider({ children }) {
 
     const latestUsers = loadLocalUsers();
     const existingUserKey = Object.keys(latestUsers).find(key => key.toLowerCase() === normalizedUserId.toLowerCase());
-    if (existingUserKey) {
+    if (existingUserKey && !allowUpdate) {
       throw new Error(`User ID "${normalizedUserId}" already exists.`);
     }
+
+    const targetUserKey = existingUserKey || normalizedUserId;
+    const existingData = existingUserKey ? latestUsers[existingUserKey] : {};
 
     // Use new array if provided, otherwise fall back to legacy single value
     const finalIdxList = normalizedClassIdxList.length > 0 ? normalizedClassIdxList
@@ -441,7 +444,8 @@ export function AuthProvider({ children }) {
     const activeSchoolName = window.localStorage.getItem('schoolName') || 'ScholasticBase';
 
     const newUser = {
-      userId: normalizedUserId,
+      ...existingData,
+      userId: targetUserKey,
       name: normalizedName,
       password: normalizedPassword,
       role: normalizedRole,
@@ -464,7 +468,7 @@ export function AuthProvider({ children }) {
 
     const nextUsers = {
       ...latestUsers,
-      [normalizedUserId]: newUser,
+      [targetUserKey]: newUser,
     };
     persistLocalUsers(nextUsers);
 
@@ -476,7 +480,44 @@ export function AuthProvider({ children }) {
       console.warn('Could not sync account to Firestore — saved locally only:', err?.message || err);
     }
 
-    return { userId: normalizedUserId, name: normalizedName, role: normalizedRole };
+    return { userId: targetUserKey, name: normalizedName, role: normalizedRole };
+  };
+
+  const updateUserPassword = async (userId, newPassword) => {
+    const normalizedUserId = String(userId || '').trim();
+    const normalizedPassword = String(newPassword || '').trim();
+    if (!normalizedUserId || !normalizedPassword) {
+      throw new Error('User ID and new password are required.');
+    }
+
+    let account = getLocalUser(normalizedUserId);
+    if (!account) {
+      account = await getUserAccountFresh(normalizedUserId);
+    }
+    if (!account) {
+      throw new Error(`Account "${normalizedUserId}" not found.`);
+    }
+
+    const updatedAccount = {
+      ...account,
+      password: normalizedPassword,
+    };
+
+    const latestUsers = loadLocalUsers();
+    const existingKey = Object.keys(latestUsers).find(k => k.toLowerCase() === normalizedUserId.toLowerCase()) || normalizedUserId;
+    const nextUsers = {
+      ...latestUsers,
+      [existingKey]: updatedAccount,
+    };
+    persistLocalUsers(nextUsers);
+
+    try {
+      await saveUserAccount(updatedAccount);
+    } catch (err) {
+      console.warn('Could not sync password update to Firestore:', err?.message || err);
+    }
+
+    return updatedAccount;
   };
 
   const deleteUser = async (userId) => {
@@ -577,6 +618,7 @@ export function AuthProvider({ children }) {
       signInDemo,
       signOut,
       createUser,
+      updateUserPassword,
       deleteUser
     }}>
       {children}
@@ -597,6 +639,7 @@ export function useAuth() {
       signInDemo: async () => {},
       signOut: () => {},
       createUser: async () => {},
+      updateUserPassword: async () => {},
       deleteUser: async () => {}
     };
   }

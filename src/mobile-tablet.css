@@ -525,7 +525,7 @@ label {
     width: 100%;
   }
 
-  .tp-sidebar-brand > div {
+  .tp-sidebar-brand>div {
     flex: 1 1 0%;
     min-width: 0;
     overflow-wrap: break-word;

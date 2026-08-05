@@ -109,8 +109,8 @@
 
   /* Portrait Named Page — for individual Transcript/Mark-sheet */
   @page portrait-page {
-    size: letter portrait;
-    margin: 4mm;
+    size: A4 portrait;
+    margin: 5mm;
   }
 
   /* Special Landscape Page Setup when wrapper has .print-landscape class */
@@ -226,6 +226,26 @@
     border: none !important;
     align-items: initial !important;
     justify-content: initial !important;
+  }
+
+  /* ── Marksheet Card Rules — Prevents Android bottom clipping, blank page 1, and excessive margins ── */
+  .marksheet-card {
+    width: 100% !important;
+    max-width: 210mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+    page-break-before: avoid !important;
+    break-before: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
 
   /* Hide ALL App Shell components, Navbars, Sidebars, Modals, Action Buttons */
@@ -393,6 +413,23 @@
   .print-container.print-landscape.print-single-page {
     max-height: 190mm !important;
     height: 190mm !important;
+  }
+
+  /* Mobile Browser Print Auto-Fit Guard (Chrome Mobile / iOS Safari 1-Page Protection) */
+  @media print and (max-width: 768px) {
+    @page {
+      margin: 0 !important;
+    }
+    html, body {
+      height: 100% !important;
+      max-height: 100vh !important;
+      overflow: hidden !important;
+    }
+    .print-single-page,
+    .printable-area,
+    .print-container:not(.mark-sheet-print-area-wrapper) {
+      zoom: 0.90 !important;
+    }
   }
 
   /* Atomic Component Protection: Prevent awkward page splits */

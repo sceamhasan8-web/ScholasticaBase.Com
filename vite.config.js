@@ -20,6 +20,7 @@ export default defineConfig({
     ],
   },
   server: {
+    host: true, // Exposes the server on local network (0.0.0.0) so it can be accessed via IP address from mobile/other devices
     // Prevent full-page HMR restarts from leaving dangling Firestore listeners
     hmr: {
       overlay: true,

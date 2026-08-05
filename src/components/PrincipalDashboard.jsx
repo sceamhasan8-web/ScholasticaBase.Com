@@ -487,8 +487,9 @@ export default function PrincipalDashboard() {
         classTeacherClassNames: assignedClassNames,
         classTeacherClassIdx: accountForm.classTeacherClassIdxList[0] ?? '',
         classTeacherClassName: assignedClassNames[0] || '',
+        allowUpdate: true,
       });
-      setAccountStatus(`Successfully registered ${accountForm.role} account "${accountForm.userId}".`);
+      setAccountStatus(`Successfully saved/updated ${accountForm.role} account "${accountForm.userId}".`);
       setAccountForm({ userId: '', name: '', password: '', role: 'student', classTeacherKey: '', classTeacherClassIdxList: [] });
       setSelectedProfileId('');
       loadAccounts();

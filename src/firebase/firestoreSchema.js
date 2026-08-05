@@ -217,22 +217,75 @@ export const saveTeacherPanelData = (payload = {}, schoolId) => {
 };
 
 export const getUserAccount = async (userId) => {
-    const snapshot = await getDoc(refs.user(userId));
-    return snapshot.exists() ? snapshot.data() : null;
+    const cleanId = String(userId || '').trim();
+    if (!cleanId) return null;
+    try {
+        await ensureFirebaseAuth();
+        const snapshot = await getDoc(refs.user(cleanId));
+        if (snapshot.exists()) return snapshot.data();
+
+        const lowerId = cleanId.toLowerCase();
+        if (lowerId !== cleanId) {
+            const lowerSnap = await getDoc(refs.user(lowerId));
+            if (lowerSnap.exists()) return lowerSnap.data();
+        }
+
+        const q = query(collection(db, COLLECTIONS.users), where('userId', '==', cleanId));
+        const querySnap = await getDocs(q);
+        if (!querySnap.empty) return querySnap.docs[0].data();
+    } catch (err) {
+        console.warn('[getUserAccount] Failed to fetch account:', err?.message || err);
+    }
+    return null;
 };
 
 /**
  * Fetch a user account directly from the Firestore server, bypassing
  * the IndexedDB persistent cache completely.
  *
- * Use this during login/credential verification to guarantee the freshest
- * password is used — even if the local cache is seconds or minutes behind.
- * For all other reads (profile displays, etc.) prefer getUserAccount() to
- * avoid unnecessary network round-trips.
+ * Uses multi-strategy lookup (exact doc ID, lowercased doc ID, collection query,
+ * and cached fallback) to ensure passwords sync seamlessly even if case or cache differs.
  */
 export const getUserAccountFresh = async (userId) => {
-    const snapshot = await getDocFromServer(refs.user(userId));
-    return snapshot.exists() ? snapshot.data() : null;
+    const cleanId = String(userId || '').trim();
+    if (!cleanId) return null;
+
+    try {
+        await ensureFirebaseAuth();
+    } catch {
+        // ignore
+    }
+
+    // 1. Try server fetch for exact userId document
+    try {
+        const snapshot = await getDocFromServer(refs.user(cleanId));
+        if (snapshot.exists()) return snapshot.data();
+    } catch {
+        // Fall through to next strategy
+    }
+
+    // 2. Try server fetch for lowercased userId document
+    const lowerId = cleanId.toLowerCase();
+    if (lowerId !== cleanId) {
+        try {
+            const lowerSnap = await getDocFromServer(refs.user(lowerId));
+            if (lowerSnap.exists()) return lowerSnap.data();
+        } catch {
+            // Fall through
+        }
+    }
+
+    // 3. Try query on users collection by userId field
+    try {
+        const q = query(collection(db, COLLECTIONS.users), where('userId', '==', cleanId));
+        const querySnap = await getDocs(q);
+        if (!querySnap.empty) return querySnap.docs[0].data();
+    } catch {
+        // Fall through
+    }
+
+    // 4. Fallback to cached/IndexedDB fetch if server read failed or timed out
+    return getUserAccount(cleanId);
 };
 
 export const saveUserAccount = (account) => saveDocument(

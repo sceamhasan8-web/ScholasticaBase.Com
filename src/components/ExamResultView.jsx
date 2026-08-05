@@ -1337,45 +1337,43 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
    * height are properly shrunk in the browser's layout engine before printing.
    */
   const computeMarksheetZoom = () => {
-    // ── Fixed render width ────────────────────────────────────────────────────
-    // The injected print CSS sets transcript-container to exactly RENDER_W px.
-    // We measure the height AT that width so the zoom is device-independent.
-    // Measuring width & conservative target height compatible with BOTH A4 (794x1123px) and US Letter (816x1056px)
-    // Measuring width & conservative target height compatible with BOTH US Letter (816x1056px) and A4 (794x1123px)
-    const RENDER_W = 794;   // ~210mm @ 96dpi
-    const PAGE_W   = 794;   // Usable width target
-    const PAGE_H   = 940;   // 940px target height strictly guarantees 1-page fit on BOTH Letter & A4 with ZERO 2nd page break!
+    // ── Fixed render width & compact target printable height ──────────────────
+    const RENDER_W = 794;   // Standard A4 width @ 96dpi (210mm)
+    const TARGET_H = 880;   // Reduced target height to guarantee zero bottom cutoff on mobile/Android print services
 
     const el = document.querySelector('.transcript-container');
-    if (!el) return 1;
+    if (!el) return 0.85;
 
-    // Save & clear any previously injected zoom so we measure natural height
-    const overrideEl   = document.getElementById('marksheet-portrait-override');
-    const prevWidth    = el.style.width;
+    // Temporarily add a measuring class so CSS forces standard desktop print layout during measurement
+    document.body.classList.add('print-measuring-mode');
+
+    // Save inline styles
+    const prevWidth = el.style.width;
     const prevMaxWidth = el.style.maxWidth;
     const prevMinWidth = el.style.minWidth;
-    const prevZoom     = el.style.zoom;
-    if (overrideEl) el.style.zoom = '1';
+    const prevZoom = el.style.zoom;
 
-    // Set exactly the same width we will use during printing
-    el.style.width    = `${RENDER_W}px`;
+    el.style.width = `${RENDER_W}px`;
     el.style.maxWidth = `${RENDER_W}px`;
     el.style.minWidth = `${RENDER_W}px`;
+    el.style.zoom = '1';
 
-    // Reading scrollHeight forces a synchronous reflow at the new width
-    const h = el.scrollHeight || 950;
+    // Force synchronous layout reflow and measure exact natural A4 height
+    const measuredH = el.scrollHeight || 840;
 
-    // Restore inline styles (restores screen layout immediately)
-    el.style.width    = prevWidth;
+    // Restore inline styles & remove measuring class
+    el.style.width = prevWidth;
     el.style.maxWidth = prevMaxWidth;
     el.style.minWidth = prevMinWidth;
-    if (overrideEl) el.style.zoom = prevZoom;
+    el.style.zoom = prevZoom;
+    document.body.classList.remove('print-measuring-mode');
 
-    // zoom_W: scale to fill paper width
-    // zoom_H: scale to fit target height ensuring strictly 1 page without 2nd page spillover
-    const zoomW = PAGE_W / RENDER_W;
-    const zoomH = PAGE_H / h;
-    return Math.max(0.30, Math.min(1.0, zoomW, zoomH));
+    // Calculate exact zoom with reduced factor for Android safety
+    const zoomVal = TARGET_H / measuredH;
+
+    // 0.88 safety multiplier scales the card down further so bottom border recovers completely
+    const rawZoom = zoomVal * 0.88;
+    return Math.max(0.35, Math.min(0.88, rawZoom));
   };
 
   const _triggerMarksheetPrint = () => {
@@ -1383,140 +1381,167 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     document.body.classList.add('print-mode-transcript');
 
     const zoom = computeMarksheetZoom();
-    // Mobile browsers ignore CSS zoom property, so we use transform: scale(0.92) to scale down for 100% 1-page fit on mobile
-    const scaleFactor = Math.min(0.93, Math.max(0.75, zoom));
 
-    // Build injected print style for true 100% edge-to-edge printing explicit to US Letter format
+    // Build injected print style with reduced zoom and compact vertical spacing
     const styleContent = [
       '@media print {',
-      '  @page { size: letter portrait !important; margin: 0 !important; }',
-      '  @page portrait-page { size: letter portrait !important; margin: 0 !important; }',
-      '  html, body {',
-      '    height: 100% !important;',
-      '    max-height: 100vh !important;',
-      '    min-height: 100% !important;',
-      '    margin: 0 !important;',
-      '    padding: 0 !important;',
-      '    overflow: hidden !important;',
-      '    background: #ffffff !important;',
-      '    page-break-before: avoid !important;',
-      '    page-break-after: avoid !important;',
-      '    break-before: avoid !important;',
-      '    break-after: avoid !important;',
-      '  }',
-      '  body.print-mode-transcript .single-marksheet-page-view {',
-      '    position: absolute !important;',
-      '    top: 0 !important;',
-      '    left: 0 !important;',
-      '    right: 0 !important;',
-      '    bottom: 0 !important;',
+      '  @page { size: A4 portrait !important; margin: 8mm !important; }',
+      '  @page portrait-page { size: A4 portrait !important; margin: 8mm !important; }',
+      '  html, body,',
+      '  body.print-mode-transcript,',
+      '  body.print-mode-transcript #root,',
+      '  body.print-mode-transcript .single-marksheet-page-view,',
+      '  body.print-mode-transcript .single-marksheet-content-container,',
+      '  body.print-mode-transcript .mark-sheet-print-area-wrapper,',
+      '  body.print-mode-transcript .print-wrapper-root,',
+      '  body.print-mode-transcript .print-container,',
+      '  body.print-mode-transcript [data-print-container="true"] {',
+      '    position: static !important;',
+      '    display: block !important;',
       '    width: 100% !important;',
-      '    height: 100% !important;',
+      '    height: auto !important;',
+      '    min-height: 0 !important;',
+      '    max-height: none !important;',
       '    margin: 0 !important;',
       '    padding: 0 !important;',
-      '    background: #ffffff !important;',
-      '    overflow: hidden !important;',
-      '  }',
-      '  body.print-mode-transcript .single-marksheet-page-container {',
-      '    padding: 0 !important;',
-      '    margin: 0 !important;',
-      '    width: 100% !important;',
-      '    max-width: 100% !important;',
-      '  }',
-      '  body.print-mode-transcript .mark-sheet-print-area-wrapper {',
-      '    display: flex !important;',
-      '    flex-direction: column !important;',
-      '    justify-content: center !important;',
-      '    align-items: stretch !important;',
-      '    position: fixed !important;',
-      '    top: 0 !important;',
-      '    left: 0 !important;',
-      '    right: 0 !important;',
-      '    bottom: 0 !important;',
-      '    width: 100vw !important;',
-      '    height: 100vh !important;',
-      '    margin: 0 !important;',
-      '    padding: 0 !important;',
-      '    box-sizing: border-box !important;',
-      '    background: #ffffff !important;',
-      '    z-index: 999999 !important;',
-      '    overflow: hidden !important;',
-      '    page-break-before: avoid !important;',
-      '    page-break-after: avoid !important;',
-      '    break-before: avoid !important;',
-      '    break-after: avoid !important;',
-      '    page-break-inside: avoid !important;',
-      '    break-inside: avoid !important;',
-      '    page: portrait-page !important;',
-      '  }',
-      '  .mark-sheet-print-area-wrapper .print-wrapper-root,',
-      '  .mark-sheet-print-area-wrapper .print-container,',
-      '  .mark-sheet-print-area-wrapper [data-print-container="true"] {',
-      '    position: relative !important;',
-      '    width: 100% !important;',
-      '    height: 100% !important;',
-      '    display: flex !important;',
-      '    flex-direction: column !important;',
-      '    justify-content: center !important;',
-      '    align-items: center !important;',
-      '    margin: 0 !important;',
-      '    padding: 0 !important;',
-      '    box-sizing: border-box !important;',
       '    background: transparent !important;',
-      '    overflow: hidden !important;',
+      '    box-shadow: none !important;',
+      '    border: none !important;',
+      '    transform: none !important;',
+      '  }',
+      '  body.print-mode-transcript .mark-sheet-no-print,',
+      '  body.print-mode-transcript .mark-sheet-actions,',
+      '  body.print-mode-transcript .print-trigger-bar {',
+      '    display: none !important;',
+      '    visibility: hidden !important;',
+      '  }',
+      '  .mark-sheet-print-area-wrapper {',
+      '    display: block !important;',
+      '    width: 100% !important;',
+      '    margin: 0 !important;',
+      '    padding: 0 !important;',
+      '    box-sizing: border-box !important;',
       '  }',
       '  .transcript-container {',
       `    zoom: ${zoom.toFixed(4)} !important;`,
-      `    transform: scale(${scaleFactor.toFixed(4)}) !important;`,
-      `    -webkit-transform: scale(${scaleFactor.toFixed(4)}) !important;`,
-      '    transform-origin: top center !important;',
-      '    -webkit-transform-origin: top center !important;',
+      '    transform: none !important;',
+      '    -webkit-transform: none !important;',
       '    width: 100% !important;',
       '    max-width: 100% !important;',
       '    min-width: 100% !important;',
       '    box-sizing: border-box !important;',
       '    margin: 0 auto !important;',
-      '    padding: 16px 20px !important;',
-      '    border-radius: 0 !important;',
-      '    overflow: hidden !important;',
-      '    page-break-before: avoid !important;',
-      '    page-break-after: avoid !important;',
+      '    padding: 12px 16px !important;',
+      '    border: 4px double #1e3a8a !important;',
+      '    outline: 2px solid #b91c1c !important;',
+      '    outline-offset: -6px !important;',
+      '    border-radius: 12px !important;',
+      '    background: #FFF2F2 !important;',
+      '    -webkit-print-color-adjust: exact !important;',
+      '    print-color-adjust: exact !important;',
+      '    overflow: visible !important;',
       '    page-break-inside: avoid !important;',
-      '    break-before: avoid !important;',
-      '    break-after: avoid !important;',
       '    break-inside: avoid !important;',
       '  }',
-      '  .transcript-container * {',
-      '    page-break-before: avoid !important;',
-      '    page-break-after: avoid !important;',
-      '    page-break-inside: avoid !important;',
-      '    break-before: avoid !important;',
-      '    break-after: avoid !important;',
-      '    break-inside: avoid !important;',
+      '  .transcript-student-section {',
+      '    display: grid !important;',
+      '    grid-template-columns: 1fr 190px 105px !important;',
+      '    gap: 12px !important;',
+      '    align-items: start !important;',
+      '    margin-bottom: 10px !important;',
+      '    width: 100% !important;',
       '  }',
-      '  .transcript-inner-border {',
-      '    top: 10px !important;',
-      '    left: 10px !important;',
-      '    right: 10px !important;',
-      '    bottom: 10px !important;',
+      '  .transcript-student-grid {',
+      '    display: flex !important;',
+      '    flex-direction: column !important;',
+      '    width: 100% !important;',
+      '    order: 1 !important;',
+      '  }',
+      '  .transcript-info-field {',
+      '    display: flex !important;',
+      '    justify-content: space-between !important;',
+      '    align-items: center !important;',
+      '    padding: 3px 0 !important;',
+      '    gap: 8px !important;',
+      '  }',
+      '  .transcript-info-label {',
+      '    font-size: 11px !important;',
+      '    white-space: nowrap !important;',
+      '  }',
+      '  .transcript-info-value {',
+      '    font-size: 12px !important;',
+      '    text-align: right !important;',
+      '  }',
+      '  .transcript-grading-box {',
+      '    width: 190px !important;',
+      '    max-width: 190px !important;',
+      '    margin: 0 !important;',
+      '    order: 2 !important;',
+      '  }',
+      '  .transcript-photo-box {',
+      '    width: 105px !important;',
+      '    height: 125px !important;',
+      '    margin: 0 !important;',
+      '    order: 3 !important;',
       '  }',
       '  .transcript-performance-table th,',
       '  .transcript-performance-table td {',
-      '    padding: 3px 5px !important;',
-      '    font-size: 10.5px !important;',
-      '  }',
-      '  .transcript-student-section {',
-      '    margin-bottom: 4px !important;',
-      '    gap: 6px !important;',
+      '    padding: 4px 6px !important;',
+      '    font-size: 11px !important;',
       '  }',
       '  .transcript-table-container {',
-      '    margin-bottom: 4px !important;',
+      '    margin-bottom: 10px !important;',
+      '    overflow: visible !important;',
       '  }',
       '  .transcript-summary-grid {',
-      '    margin-bottom: 4px !important;',
+      '    display: grid !important;',
+      '    grid-template-columns: repeat(5, 1fr) !important;',
+      '    margin-bottom: 10px !important;',
+      '    background: #ffffff !important;',
       '  }',
       '  .transcript-summary-cell {',
-      '    padding: 3px 2px !important;',
+      '    padding: 6px 4px !important;',
+      '    border-right: 1px solid #cbd5e1 !important;',
+      '  }',
+      '  .transcript-summary-cell:last-child {',
+      '    border-right: none !important;',
+      '    grid-column: auto !important;',
+      '  }',
+      '  .transcript-summary-label {',
+      '    font-size: 8.5px !important;',
+      '  }',
+      '  .transcript-summary-value {',
+      '    font-size: 13px !important;',
+      '  }',
+      '  .transcript-footer {',
+      '    display: grid !important;',
+      '    grid-template-columns: repeat(3, 1fr) !important;',
+      '    align-items: end !important;',
+      '    margin-top: 12px !important;',
+      '    padding-top: 8px !important;',
+      '    margin-bottom: 4px !important;',
+      '    width: 100% !important;',
+      '    box-sizing: border-box !important;',
+      '    page-break-inside: avoid !important;',
+      '    break-inside: avoid !important;',
+      '  }',
+      '  .transcript-signature-col {',
+      '    display: flex !important;',
+      '    flex-direction: column !important;',
+      '    align-items: center !important;',
+      '    width: 100% !important;',
+      '  }',
+      '  .transcript-signature-spacer {',
+      '    height: 24px !important;',
+      '    min-height: 24px !important;',
+      '  }',
+      '  .transcript-signature-line {',
+      '    width: 100% !important;',
+      '    max-width: 170px !important;',
+      '    border-top: 1.5px solid #1e3a8a !important;',
+      '  }',
+      '  .transcript-signature-label {',
+      '    font-size: 10.5px !important;',
       '  }',
       '}',
     ].join('\n');
@@ -2497,8 +2522,141 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     });
 
     const subjectCount = reportCardSubjectList.length;
-    const dynamicRowPadding = subjectCount > 10 ? '5px 12px' : (subjectCount > 6 ? '7px 14px' : '10px 16px');
-    const dynamicFontSize = subjectCount > 10 ? '12px' : (subjectCount > 6 ? '12.5px' : '13.5px');
+
+    // Pure helper function for dynamic scale calculation (prevents React Rules of Hooks error)
+    const getDynamicConfig = (count) => {
+      if (count <= 5) {
+        return {
+          cardPadding: '20px 24px',
+          schoolNameFont: '24px',
+          headerMargin: '14px',
+          dividerMargin: '16px',
+          studentSectionMargin: '16px',
+          infoPadding: '4px 0',
+          infoLabelFont: '11.5px',
+          infoValueFont: '13px',
+          photoWidth: '110px',
+          photoHeight: '130px',
+          gradingFont: '10px',
+          gradingPadding: '3px 4px',
+          tableMargin: '16px',
+          tableHeaderPadding: '9px 14px',
+          tableHeaderFont: '11.5px',
+          tableCellPadding: '9px 14px',
+          subjectFont: '13.5px',
+          marksFont: '15px',
+          highestMarkFont: '13.5px',
+          badgePadding: '4px 12px',
+          badgeFont: '12.5px',
+          grandTotalPadding: '10px 14px',
+          grandTotalFont: '13.5px',
+          summaryMargin: '18px',
+          summaryPadding: '10px',
+          summaryValueFont: '15px',
+          footerMarginTop: '24px',
+          signatureLineMargin: '5px',
+          signatureLabelFont: '11.5px',
+        };
+      } else if (count <= 8) {
+        return {
+          cardPadding: '14px 18px',
+          schoolNameFont: '21px',
+          headerMargin: '8px',
+          dividerMargin: '12px',
+          studentSectionMargin: '12px',
+          infoPadding: '3px 0',
+          infoLabelFont: '10.5px',
+          infoValueFont: '11.5px',
+          photoWidth: '100px',
+          photoHeight: '115px',
+          gradingFont: '9.5px',
+          gradingPadding: '2px 3px',
+          tableMargin: '12px',
+          tableHeaderPadding: '7px 12px',
+          tableHeaderFont: '10.5px',
+          tableCellPadding: '6.5px 12px',
+          subjectFont: '12px',
+          marksFont: '13.5px',
+          highestMarkFont: '12.5px',
+          badgePadding: '3px 10px',
+          badgeFont: '11.5px',
+          grandTotalPadding: '8px 12px',
+          grandTotalFont: '12.5px',
+          summaryMargin: '12px',
+          summaryPadding: '8px',
+          summaryValueFont: '14px',
+          footerMarginTop: '16px',
+          signatureLineMargin: '4px',
+          signatureLabelFont: '11px',
+        };
+      } else if (count <= 11) {
+        return {
+          cardPadding: '10px 14px',
+          schoolNameFont: '18px',
+          headerMargin: '6px',
+          dividerMargin: '8px',
+          studentSectionMargin: '8px',
+          infoPadding: '2px 0',
+          infoLabelFont: '9.5px',
+          infoValueFont: '10.5px',
+          photoWidth: '85px',
+          photoHeight: '98px',
+          gradingFont: '8.5px',
+          gradingPadding: '1.5px 2px',
+          tableMargin: '8px',
+          tableHeaderPadding: '5px 10px',
+          tableHeaderFont: '9.5px',
+          tableCellPadding: '4.5px 10px',
+          subjectFont: '11px',
+          marksFont: '12px',
+          highestMarkFont: '11.5px',
+          badgePadding: '2px 8px',
+          badgeFont: '10.5px',
+          grandTotalPadding: '6px 10px',
+          grandTotalFont: '11.5px',
+          summaryMargin: '8px',
+          summaryPadding: '5px',
+          summaryValueFont: '12.5px',
+          footerMarginTop: '10px',
+          signatureLineMargin: '3px',
+          signatureLabelFont: '10px',
+        };
+      } else {
+        return {
+          cardPadding: '6px 10px',
+          schoolNameFont: '16px',
+          headerMargin: '4px',
+          dividerMargin: '5px',
+          studentSectionMargin: '5px',
+          infoPadding: '1px 0',
+          infoLabelFont: '8.5px',
+          infoValueFont: '9.5px',
+          photoWidth: '75px',
+          photoHeight: '85px',
+          gradingFont: '7.5px',
+          gradingPadding: '1px 2px',
+          tableMargin: '6px',
+          tableHeaderPadding: '3.5px 8px',
+          tableHeaderFont: '9px',
+          tableCellPadding: '3px 8px',
+          subjectFont: '10px',
+          marksFont: '11px',
+          highestMarkFont: '10.5px',
+          badgePadding: '1px 6px',
+          badgeFont: '9.5px',
+          grandTotalPadding: '4px 8px',
+          grandTotalFont: '10.5px',
+          summaryMargin: '6px',
+          summaryPadding: '4px',
+          summaryValueFont: '11.5px',
+          footerMarginTop: '6px',
+          signatureLineMargin: '2px',
+          signatureLabelFont: '9.5px',
+        };
+      }
+    };
+
+    const dynamicConfig = getDynamicConfig(subjectCount);
 
     const studentInfoRows = [
       { label: 'Student Name', value: selectedStudent.name },
@@ -2525,35 +2683,129 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       (typeof window !== 'undefined' ? window.localStorage.getItem('schoolThemeColor') : null) ||
       '#0284c7';
 
+    /* ─────────────────────────────────────────────────────────────
+       Professional Marksheet Print Trigger Function (@media print execution)
+       ───────────────────────────────────────────────────────────── */
+    const triggerProfessionalMarksheetPrint = () => {
+      if (typeof window === 'undefined') return;
+
+      document.body.classList.remove('print-mode-tabulation');
+      document.body.classList.add('print-mode-transcript');
+
+      const cleanup = () => {
+        document.body.classList.remove('print-mode-transcript');
+        window.removeEventListener('afterprint', cleanup);
+      };
+      window.addEventListener('afterprint', cleanup);
+
+      // Micro-delay to flush DOM class changes before launching native print dialog
+      setTimeout(() => {
+        window.print();
+      }, 50);
+    };
+
     return (
       <div className="mark-sheet-print-area-wrapper">
-        {/* Navigation & Action Buttons (Hidden when printing via .mark-sheet-no-print) */}
+        {/* Navigation & Professional Print Action Toolbar (Hidden when printing via .mark-sheet-no-print) */}
         <div className="mark-sheet-no-print" style={{
-          background: 'linear-gradient(135deg, #1e3a8a, #1d4ed8)',
-          padding: '16px 22px',
-          borderBottom: 'none',
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)',
+          padding: '14px 20px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderRadius: '12px 12px 0 0',
+          borderRadius: '14px 14px 0 0',
+          boxShadow: '0 4px 20px rgba(15, 23, 42, 0.15)',
+          gap: '12px',
+          flexWrap: 'wrap',
+          marginBottom: '12px',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button
+              type="button"
               onClick={() => setSelectedStudentKey(null)}
               className="tp-back-btn"
               title="Back to Student List"
               aria-label="Back to Student List"
+              style={{
+                background: 'rgba(255, 255, 255, 0.15)',
+                color: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.25)',
+                borderRadius: '8px',
+                padding: '7px 14px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontWeight: '700',
+                fontSize: '13px',
+              }}
             >
-              <ChevronLeft />
+              <ChevronLeft /> Back to List
             </button>
             <div className="tp-section-header-info">
-              <div className="tp-breadcrumbs" aria-label="Breadcrumb" style={{ color: '#93c5fd' }}>
-                <button type="button" className="tp-crumb-link" style={{ color: '#bfdbfe' }} onClick={() => setSelectedStudentKey(null)}>Student List</button>
-                <span className="tp-crumb-separator" style={{ color: '#93c5fd' }}>/</span>
-                <span className="tp-crumb-current" style={{ color: '#ffffff' }}>{entryMeta.name || 'Transcript'}</span>
+              <div style={{ color: '#ffffff', fontSize: '15px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>📜 Official Student Marksheet</span>
+                <span style={{
+                  background: '#16a34a',
+                  color: '#ffffff',
+                  fontSize: '10px',
+                  fontWeight: '800',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  letterSpacing: '0.4px',
+                  textTransform: 'uppercase',
+                }}>
+                  A4 / Letter Ready
+                </span>
               </div>
-              <span style={{ color: '#dbeafe', fontSize: '13px', fontWeight: '700' }}>Academic Transcript / Mark Sheet ({activeExamName})</span>
+              <span style={{ color: '#93c5fd', fontSize: '12px', fontWeight: '600' }}>
+                {selectedStudent?.name} (Roll: {selectedStudent?.roll}) — {activeExamName}
+              </span>
             </div>
+          </div>
+
+          {/* Dedicated Print & PDF Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={triggerProfessionalMarksheetPrint}
+              style={{
+                background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                color: '#ffffff',
+                border: 'none',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontWeight: '700',
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
+              }}
+            >
+              🖨️ Print Marksheet (A4)
+            </button>
+
+            <button
+              type="button"
+              onClick={triggerProfessionalMarksheetPrint}
+              style={{
+                background: 'rgba(255, 255, 255, 0.12)',
+                color: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                padding: '9px 16px',
+                borderRadius: '8px',
+                fontWeight: '700',
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              📥 Save PDF
+            </button>
           </div>
         </div>
 
@@ -2571,11 +2823,11 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
           showTriggerButton={false}
         >
           <div
-            className="transcript-container"
+            className="transcript-container marksheet-card"
             style={{
               position: 'relative',
               overflow: 'visible',
-              padding: '24px 28px',
+              padding: dynamicConfig.cardPadding,
               backgroundColor: '#FFF2F2',
               background: '#FFF2F2',
               border: '4px double #1e3a8a',
@@ -2695,21 +2947,21 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
 
             <div className="transcript-content-body" style={{ position: 'relative', zIndex: 1 }}>
               {/* Header Section — Centered */}
-              <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-                <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#1e3a8a', fontFamily: "'Times New Roman', serif", textTransform: 'uppercase', letterSpacing: '-0.3px' }}>
+              <div className="transcript-header-section" style={{ textAlign: 'center', marginBottom: dynamicConfig.headerMargin }}>
+                <h1 className="transcript-school-name" style={{ margin: 0, fontSize: dynamicConfig.schoolNameFont, fontWeight: '800', color: '#1e3a8a', fontFamily: "'Times New Roman', serif", textTransform: 'uppercase', letterSpacing: '-0.3px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                   {getSchoolNameByClass(selectedStudent.class, schoolProfile) || schoolProfile?.schoolName}
                 </h1>
                 {(schoolProfile?.location || window.localStorage.getItem('schoolLocation')) && (
-                  <p style={{ margin: '4px 0 2px', fontSize: '12px', color: '#475569', fontWeight: '600' }}>
+                  <p className="transcript-school-location" style={{ margin: '4px 0 2px', fontSize: '12px', color: '#475569', fontWeight: '600', wordBreak: 'break-word' }}>
                     📍 {schoolProfile?.location || window.localStorage.getItem('schoolLocation')}
                   </p>
                 )}
                 {(schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')) && (
-                  <p style={{ margin: '2px 0 4px', fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
+                  <p className="transcript-school-eiin" style={{ margin: '2px 0 4px', fontSize: '12px', fontWeight: '700', color: '#1e293b' }}>
                     EIIN: {schoolProfile?.eiinNumber || window.localStorage.getItem('schoolEiinNumber')}
                   </p>
                 )}
-                <div style={{ fontSize: '13px', fontWeight: '800', color: '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>
+                <div className="transcript-exam-title" style={{ fontSize: '13px', fontWeight: '800', color: '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                   {activeExamName}
                 </div>
                 <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
@@ -2718,18 +2970,18 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
               </div>
 
               {/* Horizontal Navy Line */}
-              <div style={{ borderBottom: '2px solid #1e3a8a', marginBottom: '20px' }} />
+              <div style={{ borderBottom: '2px solid #1e3a8a', marginBottom: dynamicConfig.dividerMargin }} />
 
               {/* Student Details Grid, Grading System & Photo */}
-              <div className="transcript-student-section" style={{ display: 'grid', gridTemplateColumns: '1fr auto 110px', gap: '16px', alignItems: 'start', marginBottom: '24px' }}>
+              <div className="transcript-student-section" style={{ marginBottom: dynamicConfig.studentSectionMargin }}>
                 {/* Left Student Info Fields with dotted borders */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <div className="transcript-student-grid">
                   {studentInfoRows.map((info, idx) => (
-                    <div key={idx} className="transcript-info-field" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed #cbd5e1', padding: '4px 0' }}>
-                      <span className="transcript-info-label" style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <div key={idx} className="transcript-info-field" style={{ padding: dynamicConfig.infoPadding }}>
+                      <span className="transcript-info-label" style={{ fontSize: dynamicConfig.infoLabelFont }}>
                         {info.label}
                       </span>
-                      <span className="transcript-info-value" style={{ fontSize: '12.5px', color: '#0f172a', fontWeight: '800' }}>
+                      <span className="transcript-info-value" style={{ fontSize: dynamicConfig.infoValueFont }}>
                         {info.value}
                       </span>
                     </div>
@@ -2737,99 +2989,83 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                 </div>
 
                 {/* Middle: Grading System Reference Table */}
-                <div className="transcript-grading-box" style={{
-                  width: '200px',
-                  border: '1.5px solid #1e3a8a',
-                  borderRadius: '6px',
-                  overflow: 'hidden',
-                  background: '#ffffff',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-                }}>
-                  <div style={{
-                    background: '#1e3a8a',
-                    color: '#ffffff',
-                    fontSize: '10px',
-                    fontWeight: '800',
-                    textAlign: 'center',
-                    padding: '3px 4px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
-                  }}>
+                <div className="transcript-grading-box">
+                  <div className="transcript-grading-header">
                     Grading System
                   </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '10.5px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: dynamicConfig.gradingFont }}>
                     <thead>
                       <tr style={{ background: '#e0ecfb', borderBottom: '1.5px solid #1e3a8a' }}>
-                        <th style={{ padding: '3px 4px', color: '#1e3a8a', fontWeight: '800', fontSize: '9.5px', borderRight: '1px solid #1e3a8a' }}>Class Interval</th>
-                        <th style={{ padding: '3px 4px', color: '#1e3a8a', fontWeight: '800', fontSize: '9.5px', borderRight: '1px solid #1e3a8a' }}>Grade</th>
-                        <th style={{ padding: '3px 4px', color: '#1e3a8a', fontWeight: '800', fontSize: '9.5px' }}>G.P.</th>
+                        <th style={{ padding: dynamicConfig.gradingPadding, color: '#1e3a8a', fontWeight: '800', fontSize: dynamicConfig.gradingFont, borderRight: '1px solid #1e3a8a' }}>Class Interval</th>
+                        <th style={{ padding: dynamicConfig.gradingPadding, color: '#1e3a8a', fontWeight: '800', fontSize: dynamicConfig.gradingFont, borderRight: '1px solid #1e3a8a' }}>Grade</th>
+                        <th style={{ padding: dynamicConfig.gradingPadding, color: '#1e3a8a', fontWeight: '800', fontSize: dynamicConfig.gradingFont }}>G.P.</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
-                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>80-100</td>
-                        <td style={{ padding: '2px 4px', fontWeight: '800', color: '#6d28d9', borderRight: '1px solid #cbd5e1' }}>A+</td>
-                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#0f172a' }}>5.00</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>80-100</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#6d28d9', borderRight: '1px solid #cbd5e1' }}>A+</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>5.00</td>
                       </tr>
                       <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
-                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>70-79</td>
-                        <td style={{ padding: '2px 4px', fontWeight: '800', color: '#1d4ed8', borderRight: '1px solid #cbd5e1' }}>A</td>
-                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#0f172a' }}>4.00</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>70-79</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#1d4ed8', borderRight: '1px solid #cbd5e1' }}>A</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>4.00</td>
                       </tr>
                       <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
-                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>60-69</td>
-                        <td style={{ padding: '2px 4px', fontWeight: '800', color: '#0369a1', borderRight: '1px solid #cbd5e1' }}>A-</td>
-                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#0f172a' }}>3.5</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>60-69</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#0369a1', borderRight: '1px solid #cbd5e1' }}>A-</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>3.5</td>
                       </tr>
                       <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
-                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>50-59</td>
-                        <td style={{ padding: '2px 4px', fontWeight: '800', color: '#15803d', borderRight: '1px solid #cbd5e1' }}>B</td>
-                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#0f172a' }}>3.00</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>50-59</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#15803d', borderRight: '1px solid #cbd5e1' }}>B</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>3.00</td>
                       </tr>
                       <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
-                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>40-49</td>
-                        <td style={{ padding: '2px 4px', fontWeight: '800', color: '#b45309', borderRight: '1px solid #cbd5e1' }}>C</td>
-                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#0f172a' }}>2.00</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>40-49</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#b45309', borderRight: '1px solid #cbd5e1' }}>C</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>2.00</td>
                       </tr>
                       <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
-                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>33-40</td>
-                        <td style={{ padding: '2px 4px', fontWeight: '800', color: '#c2410c', borderRight: '1px solid #cbd5e1' }}>D</td>
-                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#0f172a' }}>1.00</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>33-40</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#c2410c', borderRight: '1px solid #cbd5e1' }}>D</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>1.00</td>
                       </tr>
                       <tr>
-                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>0-32</td>
-                        <td style={{ padding: '2px 4px', fontWeight: '800', color: '#b91c1c', borderRight: '1px solid #cbd5e1' }}>F</td>
-                        <td style={{ padding: '2px 4px', fontWeight: '700', color: '#0f172a' }}>0.00</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#1e293b', borderRight: '1px solid #cbd5e1' }}>0-32</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '800', color: '#b91c1c', borderRight: '1px solid #cbd5e1' }}>F</td>
+                        <td style={{ padding: dynamicConfig.gradingPadding, fontWeight: '700', color: '#0f172a' }}>0.00</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
 
                 {/* Right Photo Card */}
-                <div className="transcript-photo-box" style={{ width: '110px', height: '130px', border: '1.5px solid #000', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="transcript-photo-box" style={{ width: dynamicConfig.photoWidth, height: dynamicConfig.photoHeight }}>
                   {selectedStudent.profilePic ? (
                     <img src={selectedStudent.profilePic} alt="Student" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div className="transcript-photo-placeholder" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#0284c7' }}>
-                      <svg width="42" height="42" fill="currentColor" viewBox="0 0 24 24">
+                      <svg width="36" height="36" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                       </svg>
-                      <span style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', marginTop: '4px', letterSpacing: '0.5px' }}>PHOTO</span>
+                      <span style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', marginTop: '2px', letterSpacing: '0.5px' }}>PHOTO</span>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Subject Performance Table */}
-              <div className="transcript-table-container" style={{ width: '100%', marginBottom: '20px', border: '1.5px solid #1e3a8a', borderRadius: '8px', overflow: 'hidden', background: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+              <div className="transcript-table-container" style={{ width: '100%', marginBottom: dynamicConfig.tableMargin, border: '1.5px solid #1e3a8a', borderRadius: '8px', overflow: 'hidden', background: '#ffffff', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
                 <table className="transcript-performance-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', background: '#ffffff' }}>
                   <thead>
                     <tr style={{ background: '#1e3a8a' }}>
-                      <th style={{ padding: '10px 16px', color: '#ffffff', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1.5px solid #1e3a8a' }}>SUBJECT</th>
-                      <th style={{ padding: '10px 16px', color: '#ffffff', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>MARKS</th>
-                      <th style={{ padding: '10px 16px', color: '#ffffff', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>HIGHEST</th>
-                      <th style={{ padding: '10px 16px', color: '#ffffff', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>GRADE</th>
-                      <th style={{ padding: '10px 16px', color: '#ffffff', fontWeight: '800', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>STATUS</th>
+                      <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1.5px solid #1e3a8a' }}>SUBJECT</th>
+                      <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>MARKS</th>
+                      <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>HIGHEST</th>
+                      <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>GRADE</th>
+                      <th style={{ padding: dynamicConfig.tableHeaderPadding, color: '#ffffff', fontWeight: '800', fontSize: dynamicConfig.tableHeaderFont, textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'center', borderBottom: '1.5px solid #1e3a8a' }}>STATUS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2842,22 +3078,22 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
 
                       return (
                         <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: dynamicRowPadding, fontSize: dynamicFontSize, fontWeight: '700', color: '#1e293b' }}>
+                          <td style={{ padding: dynamicConfig.tableCellPadding, fontSize: dynamicConfig.subjectFont, fontWeight: '700', color: '#1e293b' }}>
                             {subject.subject}
                           </td>
-                          <td style={{ padding: dynamicRowPadding, textAlign: 'center' }}>
+                          <td style={{ padding: dynamicConfig.tableCellPadding, textAlign: 'center' }}>
                             {subject.isPending ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: '#94a3b8', fontWeight: '700' }}>
-                                — <span style={{ fontSize: '10px', background: '#fef3c7', color: '#d97706', padding: '1px 6px', borderRadius: '4px', border: '1px solid #fcd34d', fontWeight: '800' }}>Pending</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#94a3b8', fontWeight: '700' }}>
+                                — <span style={{ fontSize: '9px', background: '#fef3c7', color: '#d97706', padding: '1px 5px', borderRadius: '4px', border: '1px solid #fcd34d', fontWeight: '800' }}>Pending</span>
                               </span>
                             ) : (
                               <>
                                 <div>
-                                  <span style={{ fontSize: subjectCount > 10 ? '13.5px' : '15px', fontWeight: '800', color: '#1d4ed8' }}>{subject.marks}</span>
-                                  <span style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: '600', marginLeft: '2px' }}>/{resolved.totalMarks}</span>
+                                  <span style={{ fontSize: dynamicConfig.marksFont, fontWeight: '800', color: '#1d4ed8' }}>{subject.marks}</span>
+                                  <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', marginLeft: '2px' }}>/{resolved.totalMarks}</span>
                                 </div>
                                 {hasCqMcqData && (
-                                  <div style={{ fontSize: '10.5px', color: '#64748b', fontWeight: '600', marginTop: '1px' }}>
+                                  <div style={{ fontSize: '9.5px', color: '#64748b', fontWeight: '600', marginTop: '1px' }}>
                                     CQ:{subject.cqMarks}/{rule.cqTotal ?? 70}
                                     {hasMcq && ` MCQ:${subject.mcqMarks}/${rule.mcqTotal ?? 30}`}
                                   </div>
@@ -2865,20 +3101,20 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                               </>
                             )}
                           </td>
-                          <td style={{ padding: dynamicRowPadding, textAlign: 'center' }}>
-                            <span style={{ fontSize: subjectCount > 10 ? '13px' : '14px', fontWeight: '800', color: '#0f172a' }}>
+                          <td style={{ padding: dynamicConfig.tableCellPadding, textAlign: 'center' }}>
+                            <span style={{ fontSize: dynamicConfig.highestMarkFont, fontWeight: '800', color: '#0f172a' }}>
                               {highestMark}
                             </span>
                           </td>
-                          <td style={{ padding: dynamicRowPadding, textAlign: 'center' }}>
+                          <td style={{ padding: dynamicConfig.tableCellPadding, textAlign: 'center' }}>
                             {subject.isPending ? (
-                              <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', background: '#f1f5f9', color: '#94a3b8', fontSize: '12px', fontWeight: '700' }}>
+                              <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: '6px', background: '#f1f5f9', color: '#94a3b8', fontSize: '11px', fontWeight: '700' }}>
                                 —
                               </span>
                             ) : (
                               <span style={{
                                 display: 'inline-block',
-                                padding: subjectCount > 10 ? '2px 10px' : '4px 14px',
+                                padding: dynamicConfig.badgePadding,
                                 borderRadius: '6px',
                                 background: {
                                   'A+': '#6d28d9',
@@ -2890,25 +3126,25 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                                   'F': '#b91c1c',
                                 }[subject.grade] || '#6d28d9',
                                 color: '#fff',
-                                fontSize: subjectCount > 10 ? '12px' : '13px',
+                                fontSize: dynamicConfig.badgeFont,
                                 fontWeight: '800',
-                                minWidth: '32px',
+                                minWidth: '28px',
                                 textAlign: 'center',
                               }}>
                                 {subject.grade}
                               </span>
                             )}
                           </td>
-                          <td style={{ padding: dynamicRowPadding, textAlign: 'center' }}>
+                          <td style={{ padding: dynamicConfig.tableCellPadding, textAlign: 'center' }}>
                             {subject.isPending ? (
                               <span style={{
                                 display: 'inline-block',
-                                padding: '4px 16px',
+                                padding: '2px 10px',
                                 borderRadius: '20px',
                                 background: '#fef3c7',
                                 color: '#d97706',
                                 border: '1px solid #fcd34d',
-                                fontSize: '12px',
+                                fontSize: '11px',
                                 fontWeight: '700',
                               }}>
                                 Pending
@@ -2916,12 +3152,12 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                             ) : (
                               <span style={{
                                 display: 'inline-block',
-                                padding: '4px 16px',
+                                padding: '2px 10px',
                                 borderRadius: '20px',
                                 background: subject.status === 'Fail' ? '#fee2e2' : '#dcfce7',
                                 color: subject.status === 'Fail' ? '#b91c1c' : '#15803d',
                                 border: subject.status === 'Fail' ? '1px solid #fca5a5' : '1px solid #86efac',
-                                fontSize: '12px',
+                                fontSize: '11px',
                                 fontWeight: '700',
                               }}>
                                 {subject.status}
@@ -2934,65 +3170,65 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
 
                     {/* Grand Total Footer Row */}
                     <tr className="transcript-grand-total-row" style={{ background: '#ffffff', borderTop: '2px solid #0f172a' }}>
-                      <td style={{ padding: '12px 16px', fontWeight: '800', fontSize: '14px', color: '#0f172a' }}>
+                      <td style={{ padding: dynamicConfig.grandTotalPadding, fontWeight: '800', fontSize: dynamicConfig.grandTotalFont, color: '#0f172a' }}>
                         Grand Total
                       </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: '800', fontSize: '15px', color: '#0f172a' }}>
-                        {resultSummary.totalMarks} <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>/{resultSummary.maxMarks}</span>
+                      <td style={{ padding: dynamicConfig.grandTotalPadding, textAlign: 'center', fontWeight: '800', fontSize: dynamicConfig.grandTotalFont, color: '#0f172a' }}>
+                        {resultSummary.totalMarks} <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>/{resultSummary.maxMarks}</span>
                       </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: '800', fontSize: '14px', color: '#0f172a' }}>
+                      <td style={{ padding: dynamicConfig.grandTotalPadding, textAlign: 'center', fontWeight: '800', fontSize: dynamicConfig.grandTotalFont, color: '#0f172a' }}>
                         {classHighestTotalMarks ?? '—'}
                       </td>
-                      <td style={{ padding: '12px 16px' }} />
-                      <td style={{ padding: '12px 16px' }} />
+                      <td style={{ padding: dynamicConfig.grandTotalPadding }} />
+                      <td style={{ padding: dynamicConfig.grandTotalPadding }} />
                     </tr>
                   </tbody>
                 </table>
               </div>
 
               {/* 5 Summary Metric Cards */}
-              <div className="transcript-summary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#ffffff', overflow: 'hidden', textAlign: 'center', marginBottom: '16px' }}>
-                <div className="transcript-summary-cell" style={{ padding: '12px', borderRight: '1px solid #cbd5e1' }}>
-                  <div className="transcript-summary-label" style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+              <div className="transcript-summary-grid" style={{ marginBottom: dynamicConfig.summaryMargin }}>
+                <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
+                  <div className="transcript-summary-label">
                     PERCENTAGE
                   </div>
-                  <div className="transcript-summary-value" style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                  <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
                     {resultSummary.percentage.toFixed(1)}%
                   </div>
                 </div>
 
-                <div className="transcript-summary-cell" style={{ padding: '12px', borderRight: '1px solid #cbd5e1' }}>
-                  <div className="transcript-summary-label" style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+                <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
+                  <div className="transcript-summary-label">
                     PROFICIENCY
                   </div>
-                  <div className="transcript-summary-value" style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                  <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
                     {!selectedStudent.isComplete ? 'Result Pending' : (resultSummary.status === 'Fail' ? 'Needs Improvement' : (resultSummary.proficiency || 'Outstanding'))}
                   </div>
                 </div>
 
-                <div className="transcript-summary-cell" style={{ padding: '12px', borderRight: '1px solid #cbd5e1' }}>
-                  <div className="transcript-summary-label" style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+                <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
+                  <div className="transcript-summary-label">
                     GRADE (GPA)
                   </div>
-                  <div className="transcript-summary-value" style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                  <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
                     {!selectedStudent.isComplete ? 'Pending' : (resultSummary.status === 'Fail' ? 'F (0.00)' : `${resultSummary.averageGrade} (${resultSummary.gradePoint.toFixed(2)})`)}
                   </div>
                 </div>
 
-                <div className="transcript-summary-cell" style={{ padding: '12px', borderRight: '1px solid #cbd5e1' }}>
-                  <div className="transcript-summary-label" style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+                <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
+                  <div className="transcript-summary-label">
                     CLASS RANK
                   </div>
-                  <div className="transcript-summary-value" style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                  <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
                     {!selectedStudent.isComplete ? 'N/A' : (selectedStudent.position ? `#${selectedStudent.position}` : 'N/A')}
                   </div>
                 </div>
 
-                <div className="transcript-summary-cell" style={{ padding: '12px' }}>
-                  <div className="transcript-summary-label" style={{ fontSize: '10px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+                <div className="transcript-summary-cell" style={{ padding: dynamicConfig.summaryPadding }}>
+                  <div className="transcript-summary-label">
                     TOTAL STUDENTS
                   </div>
-                  <div className="transcript-summary-value" style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                  <div className="transcript-summary-value" style={{ fontSize: dynamicConfig.summaryValueFont }}>
                     {rankedFilteredResults.length || '—'}
                   </div>
                 </div>
@@ -3006,8 +3242,8 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
                   gridTemplateColumns: 'repeat(3, 1fr)',
                   gap: 'clamp(6px, 2vw, 24px)',
                   alignItems: 'end',
-                  marginTop: 'auto',
-                  paddingTop: '12px',
+                  marginTop: dynamicConfig.footerMarginTop,
+                  paddingTop: '8px',
                   marginBottom: '4px',
                   width: '100%',
                   boxSizing: 'border-box',
@@ -3015,27 +3251,24 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
               >
                 {/* Column 1: Class Teacher */}
                 <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
-                  <div className="transcript-signature-spacer" style={{ height: 'clamp(16px, 3vh, 32px)', minHeight: '16px' }} />
-                  <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: '4px' }} />
-                  <span className="transcript-signature-label" style={{ fontSize: 'clamp(9px, 1.2vw, 11px)', fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
+                  <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: dynamicConfig.signatureLineMargin }} />
+                  <span className="transcript-signature-label" style={{ fontSize: dynamicConfig.signatureLabelFont, fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
                     Class Teacher
                   </span>
                 </div>
 
                 {/* Column 2: Guardian */}
                 <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
-                  <div className="transcript-signature-spacer" style={{ height: 'clamp(16px, 3vh, 32px)', minHeight: '16px' }} />
-                  <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: '4px' }} />
-                  <span className="transcript-signature-label" style={{ fontSize: 'clamp(9px, 1.2vw, 11px)', fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
+                  <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: dynamicConfig.signatureLineMargin }} />
+                  <span className="transcript-signature-label" style={{ fontSize: dynamicConfig.signatureLabelFont, fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
                     Guardian
                   </span>
                 </div>
 
                 {/* Column 3: Head Teacher */}
                 <div className="transcript-signature-col" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 0 }}>
-                  <div className="transcript-signature-spacer" style={{ height: 'clamp(16px, 3vh, 32px)', minHeight: '16px' }} />
-                  <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: '4px' }} />
-                  <span className="transcript-signature-label" style={{ fontSize: 'clamp(9px, 1.2vw, 11px)', fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
+                  <div className="transcript-signature-line" style={{ width: '100%', maxWidth: '180px', borderTop: '1.5px solid #1e3a8a', marginBottom: dynamicConfig.signatureLineMargin }} />
+                  <span className="transcript-signature-label" style={{ fontSize: dynamicConfig.signatureLabelFont, fontWeight: '700', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.3px', textAlign: 'center', wordBreak: 'break-word' }}>
                     Head Teacher
                   </span>
                 </div>
@@ -3427,7 +3660,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
       >
         {/* Top Header Bar for Single Page View (Hidden during printing) */}
         <div
-          className="mark-sheet-no-print"
+          className="mark-sheet-no-print transcript-top-header"
           style={{
             position: 'sticky',
             top: 0,
@@ -3441,7 +3674,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
             color: '#ffffff',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div className="transcript-top-header-left" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <button
               type="button"
               onClick={() => setSelectedStudentKey(null)}
@@ -3464,16 +3697,16 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
             >
               ← Back
             </button>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.01em' }}>
+            <div style={{ minWidth: 0 }}>
+              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.01em', wordBreak: 'break-word' }}>
                 📄 {selectedStudent.name} — Marksheet
               </h3>
-              <span style={{ fontSize: '12px', color: '#93c5fd', fontWeight: '600' }}>
+              <span style={{ fontSize: '12px', color: '#93c5fd', fontWeight: '600', wordBreak: 'break-word', display: 'block' }}>
                 Class: {selectedStudent.class} | Roll: {selectedStudent.roll} | Exam: {activeExamName}
               </span>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="transcript-top-header-right" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
               type="button"
               onClick={handlePrintMarkSheet}
@@ -3499,6 +3732,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
 
         {/* Standalone Marksheet Content Container */}
         <div
+          className="single-marksheet-content-container"
           style={{
             flex: 1,
             padding: '24px 16px',

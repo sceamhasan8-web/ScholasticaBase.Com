@@ -867,8 +867,9 @@ export default function AdminDashboard() {
         // backward-compat: keep first assigned class in old field
         classTeacherClassIdx: accountForm.classTeacherClassIdxList[0] ?? '',
         classTeacherClassName: assignedClassNames[0] || '',
+        allowUpdate: true,
       });
-      setAccountStatus(`Successfully registered ${accountForm.role} account "${accountForm.userId}".`);
+      setAccountStatus(`Successfully saved/updated ${accountForm.role} account "${accountForm.userId}".`);
       setAccountForm({ userId: '', name: '', password: '', role: 'student', classTeacherKey: '', classTeacherClassIdxList: [] });
       loadAccounts();
     } catch (err) {
