@@ -68,10 +68,30 @@ const mergeUsersIntoLocalStorage = (docs) => {
     const raw = window.localStorage.getItem(LOCAL_USERS_KEY);
     const existing = raw ? JSON.parse(raw) : {};
     let changed = false;
+
+    // Create a set of lowercased user IDs present in Firestore
+    const remoteUserIds = new Set(
+      docs
+        .map((d) => String(d?.userId || d?.id || '').trim().toLowerCase())
+        .filter(Boolean)
+    );
+
+    // 1. Purge user accounts from localStorage that have been deleted in Firestore
+    Object.keys(existing).forEach((key) => {
+      const lowerKey = key.toLowerCase();
+      // Protect SuperAdmin bootstrap account
+      if (lowerKey === '@@siam##') return;
+
+      if (!remoteUserIds.has(lowerKey)) {
+        delete existing[key];
+        changed = true;
+      }
+    });
+
+    // 2. Add or update user accounts present in Firestore
     docs.forEach((data) => {
       if (!data?.userId) return;
       const key = data.userId;
-      // Never overwrite the SuperAdmin bootstrap account
       if (key === '@@Siam##') return;
       const prev = existing[key];
       const merged = { ...prev, ...data };
@@ -80,9 +100,10 @@ const mergeUsersIntoLocalStorage = (docs) => {
         changed = true;
       }
     });
+
     if (changed) {
       window.localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(existing));
-      // Notify same-tab listeners (e.g. AdminDashboard) of the update
+      // Notify same-tab listeners (e.g. AdminDashboard, PrincipalDashboard) of the update
       window.dispatchEvent(new CustomEvent('schoolUsersUpdate'));
     }
   } catch {
@@ -152,6 +173,12 @@ export function RealtimeSyncProvider({ children }) {
       { includeMetadataChanges: true },
       (snap) => {
         if (!mounted) return;
+        if (!snap.exists()) {
+          // Document was deleted from Firestore server!
+          setLiveUserAccount({ _deleted: true, userId: activeUserId });
+          setUserSyncStatus(SYNC_STATUS.LIVE);
+          return;
+        }
         const data = snapToData(snap);
         setLiveUserAccount(data);
         setUserSyncStatus(

@@ -123,10 +123,14 @@ export function AuthProvider({ children }) {
     notifyUserChanged(user?.userId ?? null);
   }, [user?.userId, notifyUserChanged]);
 
-  // Notify RealtimeSyncContext when admin status changes so it can enable/disable
-  // the users-collection listener (only admins need cross-device account sync).
+  // Notify RealtimeSyncContext when admin/management status changes so it can enable/disable
+  // the users-collection listener (admins & principals need cross-device account sync).
   useEffect(() => {
-    const isAdminSession = !!(user?.isSuperAdmin || String(user?.role || '').toLowerCase() === 'admin');
+    const roleLower = String(user?.role || '').toLowerCase();
+    const isAdminSession = !!(
+      user?.isSuperAdmin ||
+      ['admin', 'principal', 'headmaster'].includes(roleLower)
+    );
     notifyIsAdmin(isAdminSession);
   }, [user?.role, user?.isSuperAdmin, notifyIsAdmin]);
 
@@ -145,6 +149,26 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!liveUserAccount || !user) return;
+
+    // ── Handle remote account deletion in real-time ─────────────────────────
+    if (liveUserAccount._deleted) {
+      const activeIdLower = String(user.userId || '').trim().toLowerCase();
+      if (activeIdLower === String(liveUserAccount.userId || '').trim().toLowerCase()) {
+        const latestLocalUsers = loadLocalUsers();
+        const existingLocalKey = Object.keys(latestLocalUsers).find(
+          (k) => k.toLowerCase() === activeIdLower
+        );
+        if (existingLocalKey) {
+          const nextUsers = { ...latestLocalUsers };
+          delete nextUsers[existingLocalKey];
+          saveLocalUsers(nextUsers);
+        }
+        setUser(null);
+        saveCurrentUser(null);
+        navigate('/login', { replace: true });
+        return;
+      }
+    }
 
     // Only merge when the live data actually belongs to the current session
     const sameUser =
@@ -269,6 +293,18 @@ export function AuthProvider({ children }) {
           account = { ...account, ...remoteAccount };
           const latestUsers = loadLocalUsers();
           persistLocalUsers({ ...latestUsers, [trimmedUserId]: account });
+        } else {
+          // Document does not exist in Firestore — account was deleted on server!
+          const latestUsers = loadLocalUsers();
+          const matchedKey = Object.keys(latestUsers).find(
+            (k) => k.toLowerCase() === trimmedUserId.toLowerCase()
+          );
+          if (matchedKey && matchedKey.toLowerCase() !== '@@siam##') {
+            const nextUsers = { ...latestUsers };
+            delete nextUsers[matchedKey];
+            persistLocalUsers(nextUsers);
+          }
+          account = null;
         }
       } catch (err) {
         if (err?.message === '__fetch_timeout__') {
@@ -527,19 +563,24 @@ export function AuthProvider({ children }) {
 
     const currentUsers = loadLocalUsers();
     const matchedKey = Object.keys(currentUsers).find(k => k.toLowerCase() === trimmedUserId.toLowerCase());
-    if (!matchedKey) return false;
+    const keyToDelete = matchedKey || trimmedUserId;
 
-    const nextUsers = { ...currentUsers };
-    delete nextUsers[matchedKey];
-    persistLocalUsers(nextUsers);
+    if (matchedKey) {
+      const nextUsers = { ...currentUsers };
+      delete nextUsers[matchedKey];
+      persistLocalUsers(nextUsers);
+    }
 
-    if (user?.userId && String(user.userId).toLowerCase() === matchedKey.toLowerCase()) {
+    if (user?.userId && String(user.userId).toLowerCase() === keyToDelete.toLowerCase()) {
       setUser(null);
       saveCurrentUser(null);
     }
 
     try {
-      await deleteUserAccount(matchedKey);
+      await deleteUserAccount(keyToDelete);
+      if (keyToDelete.toLowerCase() !== keyToDelete) {
+        await deleteUserAccount(keyToDelete.toLowerCase());
+      }
     } catch (err) {
       if (!isFirestoreUnavailableError(err)) {
         console.warn('Could not remove Firestore account:', err);

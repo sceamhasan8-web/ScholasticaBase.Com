@@ -489,6 +489,8 @@ export default function AdminDashboard() {
   const [accountStatus, setAccountStatus] = useState('');
   const [accountError, setAccountError] = useState('');
   const [registeredAccounts, setRegisteredAccounts] = useState({});
+  const [visiblePasswords, setVisiblePasswords] = useState({});
+  const [showAllPasswords, setShowAllPasswords] = useState(false);
 
   const activeSchoolId = schoolProfile?.schoolId || schoolProfile?.schoolCode || schoolProfile?.eiinNumber || 'PROGGA_DEFAULT';
   const [teachers, setTeachers] = useState(initialTeachers);
@@ -1557,11 +1559,37 @@ export default function AdminDashboard() {
             </div>
 
             {/* List of Registered Accounts */}
-            <h3 style={{ margin: '20px 0 12px', fontSize: 16, fontWeight: 700, color: '#1a2e4a' }}>Registered Logins</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 0 12px' }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1a2e4a' }}>Registered Logins</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAllPasswords(prev => !prev);
+                  setVisiblePasswords({});
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  border: '1px solid #cbd5e1',
+                  background: showAllPasswords ? '#f1f5f9' : '#ffffff',
+                  color: showAllPasswords ? '#0f172a' : '#475569',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+              >
+                <span>{showAllPasswords ? '🙈 Hide All Passwords' : '👁️ Show All Passwords'}</span>
+              </button>
+            </div>
             <div className="tp-student-roster-grid" style={{ padding: 0 }}>
               {(() => {
                 const viewerUid = String(user?.userId || '').trim().toLowerCase();
-                const isViewerSuperAdmin = !!(user?.isSuperAdmin || viewerUid === '@@siam##');
+                const isViewerSuperAdmin = !!(user?.isSuperAdmin || viewerUid === '@@siam##' || String(user?.role || '').toLowerCase() === 'superadmin');
 
                 return Object.values(registeredAccounts)
                   .filter(acc => {
@@ -1578,6 +1606,10 @@ export default function AdminDashboard() {
                     const isTargetSuperAdmin = !!(acc.isSuperAdmin || uLower === '@@siam##');
                     const isSelf = !!(user?.userId && String(user.userId).trim().toLowerCase() === uLower);
                     const isProtectedAcc = isTargetSuperAdmin || isSelf;
+
+                    const isTargetAdmin = acc.role === 'admin' || acc.role === 'principal' || isTargetSuperAdmin;
+                    const isOtherAdmin = isTargetAdmin && !isSelf && !isViewerSuperAdmin;
+                    const isPasswordVisible = !isOtherAdmin && (showAllPasswords ? visiblePasswords[acc.userId] !== false : !!visiblePasswords[acc.userId]);
 
                     const badgeColor = isTargetSuperAdmin
                       ? '#8b5cf6'
@@ -1610,8 +1642,39 @@ export default function AdminDashboard() {
                         <div className="tp-roster-info">
                           <p className="tp-roster-name">{acc.name}</p>
                           <p className="tp-roster-id">Username: {acc.userId}</p>
-                          <p className="tp-roster-roll" style={{ fontFamily: 'Courier New', fontWeight: 700, color: '#047857' }}>
-                            Password: {acc.password || 'admin'}
+                          <p className="tp-roster-roll" style={{ fontFamily: 'Courier New', fontWeight: 700, color: '#047857', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>Password:</span>
+                            {isOtherAdmin ? (
+                              <span style={{ color: '#6b7280', fontStyle: 'italic', letterSpacing: '1px' }}>
+                                •••••••• <span style={{ fontSize: '11px', fontFamily: 'sans-serif', fontWeight: 500, color: '#9ca3af' }}>(Protected)</span>
+                              </span>
+                            ) : (
+                              <>
+                                <span style={{ letterSpacing: isPasswordVisible ? 'normal' : '2px' }}>
+                                  {isPasswordVisible ? (acc.password || 'admin') : '••••••••'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setVisiblePasswords(prev => ({ ...prev, [acc.userId]: !isPasswordVisible }));
+                                  }}
+                                  title={isPasswordVisible ? "Hide password" : "Show password"}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    padding: '0 4px',
+                                    fontSize: '13px',
+                                    color: '#6b7280',
+                                    display: 'inline-flex',
+                                    alignItems: 'center'
+                                  }}
+                                >
+                                  {isPasswordVisible ? '🙈' : '👁️'}
+                                </button>
+                              </>
+                            )}
                           </p>
                           {acc.classTeacherKey && <p className="tp-roster-meta">Class Teacher: {acc.classTeacherClassName || `Class #${Number(acc.classTeacherClassIdx) + 1}`} · Key: {acc.classTeacherKey}</p>}
                         </div>
