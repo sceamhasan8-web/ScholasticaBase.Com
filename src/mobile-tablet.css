@@ -58,12 +58,19 @@ h3,
 h4,
 h5,
 h6,
-td,
-th,
 li,
 label {
   overflow-wrap: break-word;
   word-break: break-word;
+}
+
+.fee-table-container th,
+.fee-table-container td,
+.fee-th,
+.fee-td {
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
 }
 
 /* ─────────────────────────────────────
@@ -1910,5 +1917,103 @@ button,
     font-size: 9.5px !important;
     word-break: break-word !important;
     text-align: center !important;
+  }
+}
+
+/* ─────────────────────────────────────
+   24. RESULT ENTRY RESPONSIVE DESIGN (Mobile & Tablet)
+   ───────────────────────────────────── */
+.result-entry-page {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.result-entry-card {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.result-entry-header-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.result-entry-title-box {
+  flex: 1 1 200px !important;
+  min-width: 0 !important;
+}
+
+.result-entry-title-box p,
+.result-entry-title-box h2 {
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+
+.result-entry-badge-box {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  flex-shrink: 0 !important;
+  gap: 6px !important;
+}
+
+.result-entry-branch-pills {
+  display: flex !important;
+  gap: 8px !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: none !important;
+}
+
+.result-entry-branch-pills::-webkit-scrollbar {
+  display: none !important;
+}
+
+@media screen and (max-width: 600px) {
+  .result-entry-page {
+    padding: 8px !important;
+  }
+
+  .result-entry-card {
+    padding: 14px 12px !important;
+    border-radius: 16px !important;
+  }
+
+  .result-entry-header-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .result-entry-badge-box {
+    align-items: flex-start !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+  }
+
+  .result-entry-controls {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .result-entry-summary-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    padding: 10px !important;
+  }
+
+  .result-entry-actions {
+    flex-direction: column-reverse !important;
+    width: 100% !important;
+  }
+
+  .result-entry-actions button {
+    width: 100% !important;
+    justify-content: center !important;
   }
 }

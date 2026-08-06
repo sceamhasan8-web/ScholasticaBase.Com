@@ -129,7 +129,8 @@
 .tp-table-container,
 .routine-table-container,
 .transcript-table-container,
-.mark-sheet-table-wrap {
+.mark-sheet-table-wrap,
+.fee-table-container {
   display: block !important;
   width: 100% !important;
   max-width: 100% !important;
@@ -144,9 +145,11 @@
 .tp-table-container table,
 .routine-table-container table,
 .transcript-table-container table,
-.mark-sheet-table-wrap table {
+.mark-sheet-table-wrap table,
+.fee-table-container table,
+.fee-table {
   width: 100% !important;
-  min-width: 680px !important; /* Force grid stretch to trigger finger-swiping instead of layout squeezing */
+  min-width: 780px !important; /* Force grid stretch to trigger finger-swiping instead of layout squeezing */
   border-collapse: collapse !important;
 }
 
@@ -159,11 +162,17 @@
 .transcript-table-container td,
 .mark-sheet-table-wrap th,
 .mark-sheet-table-wrap td,
+.fee-table-container th,
+.fee-table-container td,
+.fee-th,
+.fee-td,
 .sv-th,
 .sv-td,
 .results-th,
 .results-td {
   white-space: nowrap !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
 }
 
 /* Premium micro-scrollbar styling for scrolling dataset panels */

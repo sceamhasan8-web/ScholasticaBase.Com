@@ -852,22 +852,22 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
               </div>
 
               {/* Student Roster Table */}
-              <div style={{ background: '#ffffff', borderRadius: 16, border: '1px solid #e2e8f0', overflowX: 'auto', WebkitOverflowScrolling: 'touch', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
-                <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse', textAlign: 'left' }}>
+              <div className="fee-table-container tp-table-container" style={{ background: '#ffffff', borderRadius: 16, border: '1px solid #e2e8f0', overflowX: 'auto', WebkitOverflowScrolling: 'touch', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}>
+                <table className="fee-table" style={{ width: '100%', minWidth: 780, borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      <th style={{ padding: '14px 18px' }}>Roll & Student Name</th>
-                      <th style={{ padding: '14px 18px' }}>Monthly Dues</th>
-                      <th style={{ padding: '14px 18px' }}>Others Dues</th>
-                      <th style={{ padding: '14px 18px' }}>Total Dues</th>
-                      <th style={{ padding: '14px 18px' }}>Fee Status</th>
-                      <th style={{ padding: '14px 18px', textAlign: 'right' }}>Actions</th>
+                      <th className="fee-th" style={{ padding: '14px 18px', whiteSpace: 'nowrap', minWidth: 180 }}>Roll & Student Name</th>
+                      <th className="fee-th" style={{ padding: '14px 18px', whiteSpace: 'nowrap', minWidth: 140 }}>Monthly Dues</th>
+                      <th className="fee-th" style={{ padding: '14px 18px', whiteSpace: 'nowrap', minWidth: 120 }}>Others Dues</th>
+                      <th className="fee-th" style={{ padding: '14px 18px', whiteSpace: 'nowrap', minWidth: 110 }}>Total Dues</th>
+                      <th className="fee-th" style={{ padding: '14px 18px', whiteSpace: 'nowrap', minWidth: 110 }}>Fee Status</th>
+                      <th className="fee-th" style={{ padding: '14px 18px', textAlign: 'right', whiteSpace: 'nowrap', minWidth: 200 }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {level3Students.length === 0 ? (
                       <tr>
-                        <td colSpan={6} style={{ padding: 40, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>
+                        <td colSpan={6} style={{ padding: 40, textAlign: 'center', color: '#94a3b8', fontSize: 14, whiteSpace: 'normal' }}>
                           No students found matching your criteria in {selectedClassName}.
                         </td>
                       </tr>
@@ -880,59 +880,59 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
                           <tr key={studentId} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s ease' }} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                             
                             {/* Student Name */}
-                            <td style={{ padding: '14px 18px' }}>
-                              <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14 }}>{student.name || 'Unnamed Student'}</div>
-                              <div style={{ fontSize: 12, color: '#64748b' }}>Roll: #{student.roll || 'N/A'} · Class: {student.className}</div>
+                            <td className="fee-td" style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14, whiteSpace: 'nowrap' }}>{student.name || 'Unnamed Student'}</div>
+                              <div style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>Roll: #{student.roll || 'N/A'} · Class: {student.className}</div>
                               {student.admissionDate && (
-                                <div style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <div style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
                                   <span>📅 Admitted:</span> {evalRes.prorationInfo?.formattedDateStr || student.admissionDate}
                                 </div>
                               )}
                             </td>
 
                             {/* Monthly Dues */}
-                            <td style={{ padding: '14px 18px' }}>
+                            <td className="fee-td" style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>
                               {evalRes.prorationInfo?.isProrated ? (
                                 <div>
-                                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1d4ed8' }}>
+                                  <div style={{ fontSize: 13, fontWeight: 800, color: '#1d4ed8', whiteSpace: 'nowrap' }}>
                                     {formatBDT(evalRes.monthlyDuesAmount)}
                                   </div>
-                                  <div style={{ fontSize: 11, color: '#2563eb', fontWeight: 600 }}>
+                                  <div style={{ fontSize: 11, color: '#2563eb', fontWeight: 600, whiteSpace: 'nowrap' }}>
                                     Prorated ({evalRes.prorationInfo.remainingDays} days from {evalRes.prorationInfo.joiningDay}th)
                                   </div>
-                                  <div style={{ fontSize: 10, color: '#64748b' }}>
+                                  <div style={{ fontSize: 10, color: '#64748b', whiteSpace: 'nowrap' }}>
                                     Full Rate: {formatBDT(evalRes.monthlyRate)}/mo
                                   </div>
                                 </div>
                               ) : (
                                 <div>
-                                  <div style={{ fontSize: 13, fontWeight: 600 }}>{evalRes.monthlyDuesCount} Months</div>
-                                  <div style={{ fontSize: 11, color: '#64748b' }}>@ {formatBDT(evalRes.monthlyRate)}/mo ({formatBDT(evalRes.monthlyDuesAmount)})</div>
+                                  <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>{evalRes.monthlyDuesCount} Months</div>
+                                  <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>@ {formatBDT(evalRes.monthlyRate)}/mo ({formatBDT(evalRes.monthlyDuesAmount)})</div>
                                 </div>
                               )}
                             </td>
 
                             {/* Others Dues */}
-                            <td style={{ padding: '14px 18px' }}>
-                              <div style={{ fontSize: 13, fontWeight: 600 }}>{evalRes.othersDues.length} Items</div>
-                              <div style={{ fontSize: 11, color: '#64748b' }}>Total: {formatBDT(evalRes.othersDuesAmount)}</div>
+                            <td className="fee-td" style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>{evalRes.othersDues.length} Items</div>
+                              <div style={{ fontSize: 11, color: '#64748b', whiteSpace: 'nowrap' }}>Total: {formatBDT(evalRes.othersDuesAmount)}</div>
                             </td>
 
                             {/* Total Dues */}
-                            <td style={{ padding: '14px 18px' }}>
-                              <div style={{ fontSize: 15, fontWeight: 800, color: evalRes.totalPayable > 0 ? '#dc2626' : '#16a34a' }}>
+                            <td className="fee-td" style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontSize: 15, fontWeight: 800, color: evalRes.totalPayable > 0 ? '#dc2626' : '#16a34a', whiteSpace: 'nowrap' }}>
                                 {formatBDT(evalRes.totalPayable)}
                               </div>
                             </td>
 
                             {/* Status Badge */}
-                            <td style={{ padding: '14px 18px' }}>
+                            <td className="fee-td" style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>
                               {renderStatusBadge(evalRes.status)}
                             </td>
 
                             {/* Action Buttons */}
-                            <td style={{ padding: '14px 18px', textAlign: 'right' }}>
-                              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <td className="fee-td" style={{ padding: '14px 18px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', whiteSpace: 'nowrap' }}>
                                 
                                 {/* Config Dues Modal Launcher */}
                                 <button
@@ -949,6 +949,8 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     gap: 4,
+                                    whiteSpace: 'nowrap',
+                                    flexShrink: 0,
                                   }}
                                   title="Configure Class Fee, Unpaid Months & Miscellaneous Fees"
                                 >
@@ -967,6 +969,8 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
                                     fontWeight: 600,
                                     color: '#334155',
                                     cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                    flexShrink: 0,
                                   }}
                                   title="Quick Override Dues"
                                 >
@@ -988,6 +992,8 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     gap: 4,
+                                    whiteSpace: 'nowrap',
+                                    flexShrink: 0,
                                   }}
                                 >
                                   <CreditCardIcon /> Pay
@@ -1003,6 +1009,8 @@ export default function FeeManagementSystem({ userRole = 'admin', userAssignedBr
                                     background: '#f8fafc',
                                     color: '#475569',
                                     cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                    flexShrink: 0,
                                   }}
                                   title="View Student Ledger & History"
                                 >

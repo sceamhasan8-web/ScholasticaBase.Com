@@ -459,7 +459,11 @@ export default function PrincipalDashboard() {
     });
   });
 
-  const profileOptions = accountForm.role === 'teacher' ? teacherProfiles : accountForm.role === 'student' ? studentProfiles : [];
+  const profileOptions = (accountForm.role === 'teacher' || accountForm.role === 'class_teacher')
+    ? teacherProfiles
+    : accountForm.role === 'student'
+      ? studentProfiles
+      : [];
 
   const handleProfileSelect = (profileId) => {
     setSelectedProfileId(profileId);
@@ -481,17 +485,31 @@ export default function PrincipalDashboard() {
       setAccountError('Please fill in all fields.');
       return;
     }
-    if (accountForm.role === 'teacher' && accountForm.classTeacherKey.trim() && accountForm.classTeacherClassIdxList.length === 0) {
+    if ((accountForm.role === 'admin' || accountForm.role === 'principal') && !user?.isSuperAdmin) {
+      setAccountError('Only Super Admin can create Admin or Principal accounts.');
+      return;
+    }
+    if (accountForm.role === 'class_teacher') {
+      if (!accountForm.classTeacherKey.trim()) {
+        setAccountError('Please enter a Class Teacher Login Key for Class Teacher account.');
+        return;
+      }
+      if (accountForm.classTeacherClassIdxList.length === 0) {
+        setAccountError('Please select at least one assigned class for this Class Teacher.');
+        return;
+      }
+    } else if (accountForm.role === 'teacher' && accountForm.classTeacherKey.trim() && accountForm.classTeacherClassIdxList.length === 0) {
       setAccountError('Please select at least one assigned class for this class teacher key.');
       return;
     }
     try {
       const assignedClassNames = accountForm.classTeacherClassIdxList.map(idx => classes[Number(idx)]?.className || '').filter(Boolean);
+      const targetRole = accountForm.role === 'class_teacher' ? 'teacher' : accountForm.role;
       await createUser({
         userId: accountForm.userId.trim(),
         name: accountForm.name.trim(),
         password: accountForm.password.trim(),
-        role: accountForm.role,
+        role: targetRole,
         classTeacherKey: accountForm.classTeacherKey,
         classTeacherClassIdxList: accountForm.classTeacherClassIdxList,
         classTeacherClassNames: assignedClassNames,
@@ -499,7 +517,7 @@ export default function PrincipalDashboard() {
         classTeacherClassName: assignedClassNames[0] || '',
         allowUpdate: true,
       });
-      setAccountStatus(`Successfully saved/updated ${accountForm.role} account "${accountForm.userId}".`);
+      setAccountStatus(`Successfully saved/updated ${accountForm.role === 'class_teacher' ? 'Class Teacher' : accountForm.role} account "${accountForm.userId}".`);
       setAccountForm({ userId: '', name: '', password: '', role: 'student', classTeacherKey: '', classTeacherClassIdxList: [] });
       setSelectedProfileId('');
       loadAccounts();
@@ -825,7 +843,7 @@ export default function PrincipalDashboard() {
 
         {/* ══ Branch Result Entry ══ */}
         {activeSection === 'result_entry' && (
-          <div style={{ padding: '24px 20px' }}>
+          <div style={{ padding: 'clamp(12px, 3vw, 24px) clamp(10px, 3vw, 20px)' }}>
             <div className="tp-hero" style={{ marginBottom: 24 }}>
               <div className="tp-greeting">
                 <h1>Branch Result Entry</h1>
@@ -843,7 +861,7 @@ export default function PrincipalDashboard() {
 
         {/* ══ View Branch Transcripts ══ */}
         {activeSection === 'transcripts' && (
-          <div style={{ padding: '24px 20px' }}>
+          <div style={{ padding: 'clamp(12px, 3vw, 24px) clamp(10px, 3vw, 20px)' }}>
             <div className="tp-hero" style={{ marginBottom: 24 }}>
               <div className="tp-greeting">
                 <h1>View Branch Transcripts</h1>
@@ -894,14 +912,15 @@ export default function PrincipalDashboard() {
                       }}
                     >
                       <option value="student">Student</option>
-                      <option value="teacher">Teacher</option>
-                      <option value="admin">System Admin</option>
-                      <option value="principal">Principal (Full Access)</option>
+                      <option value="teacher">Teacher (Read Only)</option>
+                      <option value="class_teacher">Class Teacher</option>
+                      {user?.isSuperAdmin && <option value="admin">System Admin</option>}
+                      {user?.isSuperAdmin && <option value="principal">Principal (Full Access)</option>}
                     </select>
                   </div>
-                  {(accountForm.role === 'teacher' || accountForm.role === 'student') && (
+                  {(accountForm.role === 'teacher' || accountForm.role === 'class_teacher' || accountForm.role === 'student') && (
                     <div className="tp-form-group tp-form-full">
-                      <label className="tp-form-label">Pick existing {accountForm.role}</label>
+                      <label className="tp-form-label">Pick existing {accountForm.role === 'student' ? 'student' : 'teacher'}</label>
                       <select
                         className="tp-form-input"
                         value={selectedProfileId}
@@ -932,7 +951,7 @@ export default function PrincipalDashboard() {
                     <input
                       className="tp-form-input"
                       type="text"
-                      placeholder={accountForm.role === 'teacher' ? 'Use teacher email or alias' : 'Use student ID or alias'}
+                      placeholder={(accountForm.role === 'teacher' || accountForm.role === 'class_teacher') ? 'Use teacher email or alias' : 'Use student ID or alias'}
                       value={accountForm.userId}
                       onChange={e => setAccountForm({ ...accountForm, userId: e.target.value })}
                       required
@@ -947,16 +966,19 @@ export default function PrincipalDashboard() {
                     <label className="tp-form-label">Password</label>
                     <input className="tp-form-input" type="password" placeholder="Enter secure password" value={accountForm.password} onChange={e => setAccountForm({ ...accountForm, password: e.target.value })} required />
                   </div>
-                  {accountForm.role === 'teacher' && (
+                  {(accountForm.role === 'teacher' || accountForm.role === 'class_teacher') && (
                     <>
                       <div className="tp-form-group">
-                        <label className="tp-form-label">Class Teacher Login Key</label>
+                        <label className="tp-form-label">
+                          Class Teacher Login Key {accountForm.role === 'class_teacher' ? <span style={{ color: '#e11d48' }}>*</span> : '(Optional)'}
+                        </label>
                         <input
                           className="tp-form-input"
                           type="text"
-                          placeholder="Optional key for class teacher login"
+                          placeholder={accountForm.role === 'class_teacher' ? 'Required key for class teacher login' : 'Optional key for class teacher login'}
                           value={accountForm.classTeacherKey}
                           onChange={e => setAccountForm({ ...accountForm, classTeacherKey: e.target.value })}
+                          required={accountForm.role === 'class_teacher'}
                         />
                       </div>
                       <div className="tp-form-group tp-form-full">

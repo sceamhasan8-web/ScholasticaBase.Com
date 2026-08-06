@@ -695,17 +695,17 @@ function GroupRoster({ classData, classIdx, onBack, onSelectGroup, onAddGroup, o
       </div>
 
       <div className="tp-detail-card" style={{ margin: '0 20px 16px', padding: '16px 18px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-          <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+          <div style={{ flex: '1 1 200px', minWidth: 0 }}>
             <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#1f2937' }}>🧑‍🏫 Manage groups</p>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#475569' }}>Select a group to view its students and manage details.</p>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#475569', lineHeight: 1.4 }}>Select a group to view its students and manage details.</p>
           </div>
           {!isReadOnly && canManage && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="tp-add-student-btn" style={{ background: classColor }} onClick={() => setShowAddModal(true)}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
+              <button className="tp-add-student-btn" style={{ background: classColor, whiteSpace: 'nowrap' }} onClick={() => setShowAddModal(true)}>
                 + Add Group
               </button>
-              <button className="tp-add-student-btn" style={{ background: '#64748b' }} onClick={() => setDeleteMode(v => !v)}>
+              <button className="tp-add-student-btn" style={{ background: '#64748b', whiteSpace: 'nowrap' }} onClick={() => setDeleteMode(v => !v)}>
                 {deleteMode ? 'Cancel' : 'Delete Groups'}
               </button>
             </div>
@@ -741,13 +741,13 @@ function GroupRoster({ classData, classIdx, onBack, onSelectGroup, onAddGroup, o
                     </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                    <div>
+                    <div style={{ flex: '1 1 auto', minWidth: 0 }}>
                       <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#1f2937' }}>{groupName}</p>
                       <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
                         {(classData.students || []).filter((student) => student.group === groupName).length} student{(classData.students || []).filter((student) => student.group === groupName).length === 1 ? '' : 's'}
                       </p>
                     </div>
-                    <span className="tp-badge" style={{ background: '#dbeafe', color: '#1d4ed8' }}>Open</span>
+                    <span className="tp-badge" style={{ background: '#dbeafe', color: '#1d4ed8', flexShrink: 0 }}>Open</span>
                   </div>
                 </button>
               );
@@ -953,14 +953,14 @@ function StudentRoster({
         </div>
       </div>
 
-      <div className="tp-roster-toolbar">
-        <span className="tp-roster-badge">🎓 {students.length} Students in {groupName}</span>
+      <div className="tp-roster-toolbar" style={{ flexWrap: 'wrap', gap: 10 }}>
+        <span className="tp-roster-badge" style={{ flexShrink: 0 }}>🎓 {students.length} Students in {groupName}</span>
         {!isReadOnly && canManage && (
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button className="tp-add-student-btn" style={{ background: classColor }} onClick={() => setShowAddModal(true)}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button className="tp-add-student-btn" style={{ background: classColor, whiteSpace: 'nowrap' }} onClick={() => setShowAddModal(true)}>
               + Add Student
             </button>
-            <button className="tp-add-student-btn" style={{ background: '#38b26e' }} onClick={() => setShowAssignTeacherModal(true)}>
+            <button className="tp-add-student-btn" style={{ background: '#38b26e', whiteSpace: 'nowrap' }} onClick={() => setShowAssignTeacherModal(true)}>
               Assign Teacher
             </button>
           </div>
@@ -968,12 +968,12 @@ function StudentRoster({
       </div>
 
       <div className="tp-detail-card" style={{ margin: '0 20px 16px', padding: '16px 18px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
-          <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
+          <div style={{ flex: '1 1 200px', minWidth: 0 }}>
             <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#1f2937' }}>📚 Group Subjects</p>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#475569' }}>{isReadOnly ? `Subjects taught in ${groupName}.` : `Add subjects for ${groupName} and assign teachers by subject.`}</p>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#475569', lineHeight: 1.4 }}>{isReadOnly ? `Subjects taught in ${groupName}.` : `Add subjects for ${groupName} and assign teachers by subject.`}</p>
           </div>
-          <span className="tp-badge" style={{ background: '#dbeafe', color: '#1d4ed8' }}>{savedSubjects.length} Subject{savedSubjects.length !== 1 ? 's' : ''}</span>
+          <span className="tp-badge" style={{ background: '#dbeafe', color: '#1d4ed8', flexShrink: 0 }}>{savedSubjects.length} Subject{savedSubjects.length !== 1 ? 's' : ''}</span>
         </div>
 
         {!isReadOnly && (

@@ -575,14 +575,14 @@ const ResultEntry = ({ classes = [], currentTeacherProfile = null, currentTeache
     }, 0);
 
   return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        <div style={styles.headerRow}>
-          <div>
+    <div style={styles.page} className="result-entry-page">
+      <div style={styles.card} className="result-entry-card">
+        <div style={styles.headerRow} className="result-entry-header-row">
+          <div style={styles.headerTitleBox} className="result-entry-title-box">
             <p style={styles.meta}>{effectiveReadOnly ? t('results.teacherResultView') : t('results.teacherResultEntry')}</p>
             <h2 style={styles.title}>{effectiveReadOnly ? t('results.resultView') : t('results.resultEntry')}</h2>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          <div style={styles.headerBadgeBox} className="result-entry-badge-box">
             <div style={styles.badge}>{effectiveReadOnly ? t('common.readOnly') : t('common.live')}</div>
             {/* Resolved institution name badge */}
             {selectedClassData && getSchoolNameByClass(selectedClassData.className) && (
@@ -591,22 +591,25 @@ const ResultEntry = ({ classes = [], currentTeacherProfile = null, currentTeache
                 fontWeight: 700,
                 color: SCHOOL_BRANCHES[getBranchKeyByClass(selectedClassData.className)]?.color || '#475569',
                 background: `${SCHOOL_BRANCHES[getBranchKeyByClass(selectedClassData.className)]?.color || '#475569'}14`,
-                padding: '3px 10px',
+                padding: '4px 12px',
                 borderRadius: 999,
                 whiteSpace: 'nowrap',
-                maxWidth: 220,
+                maxWidth: '100%',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
               }}>
-                {SCHOOL_BRANCHES[getBranchKeyByClass(selectedClassData.className)]?.emoji}
-                {' '}{getSchoolNameByClass(selectedClassData.className)}
+                <span>{SCHOOL_BRANCHES[getBranchKeyByClass(selectedClassData.className)]?.emoji}</span>
+                <span>{getSchoolNameByClass(selectedClassData.className)}</span>
               </div>
             )}
           </div>
         </div>
 
         {/* Branch Filter Pills */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+        <div className="result-entry-branch-pills" style={styles.branchPillsRow}>
           {BRANCH_ORDER.map((branchKey) => {
             const branch = SCHOOL_BRANCHES[branchKey];
             const hasClasses = filterClassesByBranch(allowedClassOptions, branchKey).length > 0;
@@ -618,28 +621,21 @@ const ResultEntry = ({ classes = [], currentTeacherProfile = null, currentTeache
                 type="button"
                 onClick={() => setSelectedBranch(branchKey)}
                 style={{
-                  padding: '7px 14px',
-                  borderRadius: 999,
+                  ...styles.branchPillBtn,
                   border: `2px solid ${isActive ? branch.color : '#e2e8f0'}`,
-                  background: isActive ? branch.color : '#f8fafc',
+                  background: isActive ? `linear-gradient(135deg, ${branch.color}, ${branch.gradientTo || branch.color})` : '#f8fafc',
                   color: isActive ? '#fff' : '#475569',
-                  fontWeight: 700,
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
+                  boxShadow: isActive ? `0 4px 14px ${branch.color}40` : 'none',
                 }}
               >
-                <span>{branch.emoji}</span>
-                {branch.shortName}
+                <span style={{ fontSize: 15 }}>{branch.emoji}</span>
+                <span>{branch.shortName}</span>
               </button>
             );
           })}
         </div>
 
-        <div style={styles.controls}>
+        <div style={styles.controls} className="result-entry-controls">
           <label style={styles.field}>
             <span style={styles.label}>{t('results.class')}</span>
             <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} style={styles.select}>
@@ -695,34 +691,42 @@ const ResultEntry = ({ classes = [], currentTeacherProfile = null, currentTeache
           </label>
         </div>
         {filteredExamSessions.length === 0 && (
-          <div style={{ color: '#dc2626', fontSize: '13px', fontWeight: '600', marginTop: '-8px', marginBottom: '14px', background: '#fee2e2', padding: '10px 14px', borderRadius: '10px', border: '1px solid #fca5a5' }}>
+          <div style={{ color: '#dc2626', fontSize: '13px', fontWeight: '600', marginTop: '-4px', marginBottom: '16px', background: '#fee2e2', padding: '10px 14px', borderRadius: '12px', border: '1px solid #fca5a5', lineHeight: 1.4 }}>
             ⚠️ There are no Exam Sessions configured for <strong>{selectedClass}</strong>. You must configure an Exam Session in the "Results" tab before entering marks.
           </div>
         )}
 
-        <div style={styles.summaryBox}>
-          <span><strong>{t('results.classSummary')}:</strong> {selectedClass}</span>
-          <span><strong>{t('results.examSummary')}:</strong> {selectedExam ? selectedExam.name : <span style={{ color: '#dc2626' }}>{t('common.noneSelected')}</span>}</span>
-          <span><strong>{t('results.groupSummary')}:</strong> {selectedSection || 'N/A'}</span>
-          <span><strong>{t('results.subjectSummary')}:</strong> {selectedSubject}</span>
-          {hasCqMcqRule ? (
-            <>
-              <span><strong>CQ:</strong> {currentSubjectRule.cqTotal} (Pass: {currentSubjectRule.cqPass})</span>
-              {hasMcqComponent && <span><strong>{isPrimaryBranch ? 'Tutorial:' : 'MCQ:'}</strong> {currentSubjectRule.mcqTotal} (Pass: {currentSubjectRule.mcqPass})</span>}
-              <span><strong>Combined:</strong> {resolvedRule.totalMarks}</span>
-            </>
-          ) : (
-            <>
-              <span><strong>{t('results.totalMarksSummary')}:</strong> {resolvedRule.totalMarks}</span>
-              <span><strong>{t('results.passMarksSummary')}:</strong> {resolvedRule.passMarks}</span>
-            </>
-          )}
-          <span><strong>{t('results.enteredSummary')}:</strong> {enteredCount}</span>
-          <span><strong>{t('results.avgSummary')}:</strong> {enteredCount ? (averageMarks / enteredCount).toFixed(1) : '0.0'}</span>
+        <div style={styles.summaryGrid} className="result-entry-summary-grid">
+          <div style={styles.summaryChip}>
+            <span style={styles.summaryLabel}>{t('results.classSummary')}:</span>
+            <span style={styles.summaryVal}>{selectedClass} ({selectedSection || 'All'})</span>
+          </div>
+          <div style={styles.summaryChip}>
+            <span style={styles.summaryLabel}>{t('results.examSummary')}:</span>
+            <span style={styles.summaryVal}>{selectedExam ? selectedExam.name : <span style={{ color: '#dc2626' }}>{t('common.noneSelected')}</span>}</span>
+          </div>
+          <div style={styles.summaryChip}>
+            <span style={styles.summaryLabel}>{t('results.subjectSummary')}:</span>
+            <span style={styles.summaryVal}>{selectedSubject}</span>
+          </div>
+          <div style={styles.summaryChip}>
+            <span style={styles.summaryLabel}>Rules:</span>
+            <span style={styles.summaryVal}>
+              {hasCqMcqRule ? (
+                <>CQ: {currentSubjectRule.cqTotal}{hasMcqComponent ? `, ${isPrimaryBranch ? 'Tut' : 'MCQ'}:${currentSubjectRule.mcqTotal}` : ''} (Pass: CQ {currentSubjectRule.cqPass}{hasMcqComponent ? `/MCQ ${currentSubjectRule.mcqPass}` : ''})</>
+              ) : (
+                <>Total: {resolvedRule.totalMarks} (Pass: {resolvedRule.passMarks})</>
+              )}
+            </span>
+          </div>
+          <div style={styles.summaryChip}>
+            <span style={styles.summaryLabel}>Stats:</span>
+            <span style={styles.summaryVal}>{enteredCount}/{students.length} entered (Avg: {enteredCount ? (averageMarks / enteredCount).toFixed(1) : '0.0'})</span>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="tp-table-container tp-table-responsive">
+          <div className="tp-table-container tp-table-responsive" style={styles.tableWrapper}>
             <table style={styles.table}>
               <thead>
                 <tr>
@@ -743,7 +747,7 @@ const ResultEntry = ({ classes = [], currentTeacherProfile = null, currentTeache
               <tbody>
                 {students.length === 0 ? (
                   <tr>
-                    <td colSpan={hasCqMcqRule ? (hasMcqComponent ? 5 : 4) : 4} style={{ ...styles.td, textAlign: 'center', color: '#94a3b8' }}>
+                    <td colSpan={hasCqMcqRule ? (hasMcqComponent ? 5 : 4) : 4} style={{ ...styles.td, textAlign: 'center', color: '#94a3b8', padding: '24px 12px' }}>
                       {t('results.noStudentsFound')}
                     </td>
                   </tr>
@@ -759,14 +763,16 @@ const ResultEntry = ({ classes = [], currentTeacherProfile = null, currentTeache
 
                   return (
                     <tr key={student.id || student.roll}>
-                      <td style={styles.td}>{student.roll}</td>
-                      <td style={styles.td}>{student.name}</td>
+                      <td style={styles.td}>#{String(student.roll).padStart(2, '0')}</td>
+                      <td style={{ ...styles.td, fontWeight: 700 }}>{student.name}</td>
                       {hasCqMcqRule ? (
                         <>
                           {/* CQ input */}
                           <td style={{ ...styles.td, textAlign: 'center' }}>
                             <input
                               type="number"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
                               value={cqVal}
                               onChange={(e) => handleCqChange(student.roll, e.target.value)}
                               onKeyDown={(e) => handleMarksKeyDown(e, index, 'cq')}
@@ -787,6 +793,8 @@ const ResultEntry = ({ classes = [], currentTeacherProfile = null, currentTeache
                             <td style={{ ...styles.td, textAlign: 'center' }}>
                               <input
                                 type="number"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={mcqVal}
                                 onChange={(e) => handleMcqChange(student.roll, e.target.value)}
                                 onKeyDown={(e) => handleMarksKeyDown(e, index, 'mcq')}
@@ -824,6 +832,8 @@ const ResultEntry = ({ classes = [], currentTeacherProfile = null, currentTeache
                         <td style={{ ...styles.td, textAlign: 'center' }}>
                           <input
                             type="number"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={cqVal}
                             onChange={(e) => handleMarksChange(student.roll, e.target.value)}
                             onKeyDown={(e) => handleMarksKeyDown(e, index, 'cq')}
@@ -836,8 +846,16 @@ const ResultEntry = ({ classes = [], currentTeacherProfile = null, currentTeache
                           />
                         </td>
                       )}
-                      <td style={{ ...styles.td, textAlign: 'center', fontWeight: 700, color: gradeDisplay === 'F' ? '#b91c1c' : '#2563eb' }}>
-                        {gradeDisplay}
+                      <td style={{ ...styles.td, textAlign: 'center', fontWeight: 800, color: gradeDisplay === 'F' ? '#dc2626' : '#2563eb' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '3px 9px',
+                          borderRadius: '6px',
+                          background: gradeDisplay === 'F' ? '#fee2e2' : gradeDisplay === '-' ? 'transparent' : '#dbeafe',
+                          fontSize: '13px',
+                        }}>
+                          {gradeDisplay}
+                        </span>
                       </td>
                     </tr>
                   );
@@ -849,7 +867,7 @@ const ResultEntry = ({ classes = [], currentTeacherProfile = null, currentTeache
           {feedback ? <p style={styles.feedback}>{feedback}</p> : null}
 
           {!effectiveReadOnly && (
-            <div style={styles.actions}>
+            <div style={styles.actions} className="result-entry-actions">
               <button type="button" onClick={handleReset} style={styles.secondaryBtn}>{t('common.reset')}</button>
               <button type="submit" style={styles.primaryBtn}>{t('results.saveResult')}</button>
             </div>
@@ -862,52 +880,98 @@ const ResultEntry = ({ classes = [], currentTeacherProfile = null, currentTeache
 
 const styles = {
   page: {
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    fontFamily: "'Segoe UI', Roboto, system-ui, -apple-system, sans-serif",
     background: 'linear-gradient(135deg, #f8fbff 0%, #eef4ff 100%)',
-    padding: '20px',
+    padding: 'clamp(10px, 3vw, 24px)',
     minHeight: '100vh',
+    boxSizing: 'border-box',
+    width: '100%',
   },
   card: {
     background: '#fff',
-    borderRadius: '16px',
+    borderRadius: '20px',
     boxShadow: '0 12px 35px rgba(15, 23, 42, 0.08)',
-    padding: '24px',
-    maxWidth: '860px',
+    padding: 'clamp(14px, 4vw, 28px)',
+    maxWidth: '960px',
     margin: '0 auto',
+    width: '100%',
+    boxSizing: 'border-box',
   },
   headerRow: {
     display: 'flex',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: '12px',
     marginBottom: '18px',
+    width: '100%',
+  },
+  headerTitleBox: {
+    flex: '1 1 200px',
+    minWidth: 0,
+  },
+  headerBadgeBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: '6px',
+    flexShrink: 0,
   },
   meta: {
     margin: 0,
-    fontSize: '13px',
+    fontSize: '12px',
     color: '#64748b',
     textTransform: 'uppercase',
-    letterSpacing: '1px',
-    fontWeight: 700,
+    letterSpacing: '0.8px',
+    fontWeight: 800,
+    wordBreak: 'normal',
+    overflowWrap: 'break-word',
   },
   title: {
     margin: '4px 0 0',
-    fontSize: '28px',
+    fontSize: 'clamp(20px, 4vw, 28px)',
+    fontWeight: 800,
     color: '#0f172a',
+    lineHeight: 1.2,
+    wordBreak: 'normal',
+    overflowWrap: 'break-word',
   },
   badge: {
     background: '#dcfce7',
     color: '#166534',
-    padding: '6px 10px',
+    padding: '5px 12px',
     borderRadius: '999px',
     fontSize: '12px',
+    fontWeight: 800,
+    display: 'inline-block',
+  },
+  branchPillsRow: {
+    display: 'flex',
+    gap: '8px',
+    marginBottom: '16px',
+    overflowX: 'auto',
+    WebkitOverflowScrolling: 'touch',
+    paddingBottom: '4px',
+    scrollbarWidth: 'none',
+  },
+  branchPillBtn: {
+    padding: '8px 16px',
+    borderRadius: '999px',
     fontWeight: 700,
+    fontSize: '13px',
+    cursor: 'pointer',
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
   },
   controls: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))',
     gap: '12px',
-    marginBottom: '14px',
+    marginBottom: '16px',
   },
   field: {
     display: 'flex',
@@ -915,89 +979,128 @@ const styles = {
     gap: '6px',
   },
   label: {
-    fontSize: '12px',
+    fontSize: '11.5px',
     color: '#475569',
-    fontWeight: 700,
+    fontWeight: 800,
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
   },
   select: {
+    width: '100%',
     padding: '10px 12px',
-    borderRadius: '10px',
-    border: '1px solid #cbd5e1',
+    borderRadius: '12px',
+    border: '1.5px solid #cbd5e1',
     background: '#f8fafc',
     fontSize: '14px',
+    fontWeight: 600,
+    color: '#0f172a',
+    outline: 'none',
+    boxSizing: 'border-box',
   },
-  summaryBox: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '10px',
-    background: '#f8fafc',
+  summaryGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))',
+    gap: '8px',
+    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
     border: '1px solid #e2e8f0',
-    borderRadius: '12px',
-    padding: '10px 12px',
+    borderRadius: '14px',
+    padding: '12px 14px',
+    marginBottom: '18px',
+  },
+  summaryChip: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+    fontSize: '12px',
+  },
+  summaryLabel: {
+    fontWeight: 700,
+    color: '#64748b',
+    fontSize: '11px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.4px',
+  },
+  summaryVal: {
+    fontWeight: 700,
+    color: '#0f172a',
+    wordBreak: 'break-word',
+  },
+  tableWrapper: {
+    borderRadius: '14px',
+    border: '1px solid #e2e8f0',
+    overflowX: 'auto',
+    WebkitOverflowScrolling: 'touch',
     marginBottom: '16px',
-    fontSize: '13px',
-    color: '#334155',
   },
   table: {
     width: '100%',
-    minWidth: '540px',
+    minWidth: '520px',
     borderCollapse: 'collapse',
-    marginBottom: '14px',
   },
   th: {
-    padding: '12px 10px',
+    padding: '12px 12px',
     textAlign: 'left',
-    borderBottom: '1px solid #e2e8f0',
+    borderBottom: '2px solid #e2e8f0',
     background: '#f8fafc',
     color: '#475569',
-    fontWeight: 700,
+    fontWeight: 800,
+    fontSize: '12px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.4px',
   },
   td: {
-    padding: '12px 10px',
-    borderBottom: '1px solid #eef2f7',
+    padding: '12px 12px',
+    borderBottom: '1px solid #f1f5f9',
     color: '#334155',
+    fontSize: '13.5px',
   },
   markInput: {
     width: '78px',
-    padding: '8px',
-    border: '1px solid #cbd5e1',
-    borderRadius: '8px',
+    minHeight: '40px',
+    padding: '6px 8px',
+    border: '1.5px solid #cbd5e1',
+    borderRadius: '10px',
     textAlign: 'center',
-    fontSize: '14px',
+    fontSize: '15px',
+    fontWeight: '700',
     outline: 'none',
+    boxSizing: 'border-box',
   },
   feedback: {
-    margin: '0 0 14px',
-    padding: '10px 12px',
-    borderRadius: '8px',
+    margin: '0 0 16px',
+    padding: '12px 14px',
+    borderRadius: '12px',
     background: '#eff6ff',
     color: '#1d4ed8',
-    fontSize: '14px',
+    fontSize: '13.5px',
+    fontWeight: '600',
+    border: '1px solid #bfdbfe',
   },
   actions: {
     display: 'flex',
     justifyContent: 'flex-end',
-    gap: '10px',
+    gap: '12px',
   },
   secondaryBtn: {
-    border: '1px solid #cbd5e1',
+    border: '1.5px solid #cbd5e1',
     background: '#fff',
     color: '#334155',
-    padding: '10px 14px',
-    borderRadius: '10px',
+    padding: '12px 20px',
+    borderRadius: '12px',
     cursor: 'pointer',
     fontWeight: 700,
+    fontSize: '14px',
   },
   primaryBtn: {
     border: 'none',
-    background: '#2563eb',
+    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
     color: '#fff',
-    padding: '10px 14px',
-    borderRadius: '10px',
+    padding: '12px 24px',
+    borderRadius: '12px',
     cursor: 'pointer',
-    fontWeight: 700,
+    fontWeight: 800,
+    fontSize: '14px',
+    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)',
   },
 };
 
