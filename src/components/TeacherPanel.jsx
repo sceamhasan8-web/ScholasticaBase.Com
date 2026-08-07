@@ -453,8 +453,34 @@ function AddClassModal({ onClose, onAdd, initialBranchKey = 'primary' }) {
    AddStudentModal
    ────────────────────────────────────────── */
 function AddStudentModal({ onClose, onAdd, classColor, existingRolls = [], groupName = '' }) {
-  const [form, setForm] = useState({ name: '', roll: '', phone: '', email: '' });
+  const [form, setForm] = useState({
+    name: '',
+    roll: '',
+    phone: '',
+    fatherName: '',
+    motherName: '',
+    dob: '',
+    profilePic: ''
+  });
   const [error, setError] = useState('');
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsProcessingPhoto(true);
+    try {
+      const optimized = await convertToWebP(file, { maxWidth: 300, maxHeight: 300, quality: 0.85 });
+      setForm(prev => ({ ...prev, profilePic: optimized.dataUrl }));
+    } catch (err) {
+      console.error('Photo optimization failed, falling back:', err);
+      const reader = new FileReader();
+      reader.onload = (ev) => setForm(prev => ({ ...prev, profilePic: ev.target.result }));
+      reader.readAsDataURL(file);
+    } finally {
+      setIsProcessingPhoto(false);
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -478,7 +504,10 @@ function AddStudentModal({ onClose, onAdd, classColor, existingRolls = [], group
       name,
       roll: normalizedRoll,
       phone: form.phone.trim(),
-      email: form.email.trim().toLowerCase(),
+      fatherName: form.fatherName.trim(),
+      motherName: form.motherName.trim(),
+      dob: form.dob,
+      profilePic: form.profilePic,
       group: groupName,
     });
   };
@@ -492,6 +521,54 @@ function AddStudentModal({ onClose, onAdd, classColor, existingRolls = [], group
         </div>
 
         <form className="tp-modal-body" onSubmit={handleSubmit}>
+          {/* Photo Upload Section (300x300px) */}
+          <div style={{ textAlign: 'center', marginBottom: 16 }}>
+            <label htmlFor="tp-student-add-photo" style={{ cursor: 'pointer', display: 'inline-block' }}>
+              {form.profilePic ? (
+                <div style={{ position: 'relative', width: 100, height: 100, borderRadius: 16, overflow: 'hidden', margin: '0 auto', border: `2px solid ${classColor}`, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                  <img src={form.profilePic} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <div style={{ position: 'absolute', bottom: 0, inset: 'auto 0 0 0', background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: 10, fontWeight: 700, textAlign: 'center', padding: '3px 0' }}>
+                    300 × 300 px
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  width: 100,
+                  height: 100,
+                  borderRadius: 16,
+                  border: `2px dashed ${classColor}`,
+                  background: '#f8fafc',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto',
+                  transition: 'all 0.2s'
+                }}>
+                  <span style={{ fontSize: 26, marginBottom: 2 }}>📸</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#334155' }}>Upload Photo</span>
+                  <span style={{ fontSize: 9, color: '#64748b', fontWeight: 600 }}>300 × 300 px</span>
+                </div>
+              )}
+            </label>
+            <input
+              id="tp-student-add-photo"
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              style={{ display: 'none' }}
+            />
+            {form.profilePic && (
+              <button
+                type="button"
+                onClick={() => setForm(prev => ({ ...prev, profilePic: '' }))}
+                style={{ display: 'block', margin: '6px auto 0', background: 'none', border: 'none', color: '#ef4444', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Remove Photo
+              </button>
+            )}
+          </div>
+
           <div className="tp-form-grid">
             <div className="tp-form-group tp-form-full">
               <label className="tp-form-label">Student Name *</label>
@@ -527,14 +604,35 @@ function AddStudentModal({ onClose, onAdd, classColor, existingRolls = [], group
               />
             </div>
 
-            <div className="tp-form-group tp-form-full">
-              <label className="tp-form-label">Email</label>
+            <div className="tp-form-group">
+              <label className="tp-form-label">Father's Name</label>
               <input
                 className="tp-form-input"
-                type="email"
-                placeholder="e.g. student@email.com"
-                value={form.email}
-                onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
+                type="text"
+                placeholder="e.g. Md. Rahman"
+                value={form.fatherName}
+                onChange={(e) => setForm(prev => ({ ...prev, fatherName: e.target.value }))}
+              />
+            </div>
+
+            <div className="tp-form-group">
+              <label className="tp-form-label">Mother's Name</label>
+              <input
+                className="tp-form-input"
+                type="text"
+                placeholder="e.g. Salma Begum"
+                value={form.motherName}
+                onChange={(e) => setForm(prev => ({ ...prev, motherName: e.target.value }))}
+              />
+            </div>
+
+            <div className="tp-form-group tp-form-full">
+              <label className="tp-form-label">Date of Birth (Birthday)</label>
+              <input
+                className="tp-form-input"
+                type="date"
+                value={form.dob}
+                onChange={(e) => setForm(prev => ({ ...prev, dob: e.target.value }))}
               />
             </div>
           </div>
@@ -543,8 +641,8 @@ function AddStudentModal({ onClose, onAdd, classColor, existingRolls = [], group
 
           <div className="tp-modal-footer">
             <button type="button" className="tp-modal-cancel-btn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="tp-modal-submit-btn" style={{ background: classColor }}>
-              Add Student
+            <button type="submit" className="tp-modal-submit-btn" style={{ background: classColor }} disabled={isProcessingPhoto}>
+              {isProcessingPhoto ? 'Processing Photo...' : 'Add Student'}
             </button>
           </div>
         </form>
@@ -851,7 +949,29 @@ function StudentRoster({
 
   const openEditStudent = (student) => {
     setEditingStudent(student);
-    setEditDraft({ name: student?.name || '', roll: student?.roll || '' });
+    setEditDraft({
+      name: student?.name || '',
+      roll: student?.roll || '',
+      phone: student?.phone || '',
+      fatherName: student?.fatherName || '',
+      motherName: student?.motherName || '',
+      dob: student?.dob || '',
+      profilePic: student?.profilePic || '',
+    });
+  };
+
+  const handleEditPhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const optimized = await convertToWebP(file, { maxWidth: 300, maxHeight: 300, quality: 0.85 });
+      setEditDraft(prev => ({ ...prev, profilePic: optimized.dataUrl }));
+    } catch (err) {
+      console.error('Photo optimization failed:', err);
+      const reader = new FileReader();
+      reader.onload = (ev) => setEditDraft(prev => ({ ...prev, profilePic: ev.target.result }));
+      reader.readAsDataURL(file);
+    }
   };
 
   const saveEditedStudent = (e) => {
@@ -861,6 +981,11 @@ function StudentRoster({
       ...editingStudent,
       name: editDraft.name.trim(),
       roll: editDraft.roll.trim(),
+      phone: editDraft.phone?.trim() || '',
+      fatherName: editDraft.fatherName?.trim() || '',
+      motherName: editDraft.motherName?.trim() || '',
+      dob: editDraft.dob || '',
+      profilePic: editDraft.profilePic || '',
     });
     setEditingStudent(null);
   };
@@ -898,23 +1023,66 @@ function StudentRoster({
         <div className="tp-modal-overlay" onClick={() => setEditingStudent(null)}>
           <div className="tp-modal" onClick={(e) => e.stopPropagation()}>
             <div className="tp-modal-header" style={{ borderBottomColor: classColor }}>
-              <h3 className="tp-modal-title">✏️ Edit Student</h3>
+              <h3 className="tp-modal-title">✏️ Edit Student Details</h3>
               <button className="tp-modal-close" onClick={() => setEditingStudent(null)} aria-label="Close">✕</button>
             </div>
             <form className="tp-modal-body" onSubmit={saveEditedStudent}>
+              {/* Photo Upload Section */}
+              <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                <label htmlFor="tp-student-edit-photo" style={{ cursor: 'pointer', display: 'inline-block' }}>
+                  {editDraft.profilePic ? (
+                    <div style={{ position: 'relative', width: 90, height: 90, borderRadius: 14, overflow: 'hidden', margin: '0 auto', border: `2px solid ${classColor}` }}>
+                      <img src={editDraft.profilePic} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <div style={{ position: 'absolute', bottom: 0, inset: 'auto 0 0 0', background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: 9, fontWeight: 700, textAlign: 'center', padding: '2px 0' }}>
+                        Change 300×300
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ width: 90, height: 90, borderRadius: 14, border: `2px dashed ${classColor}`, background: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+                      <span style={{ fontSize: 22 }}>📸</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#334155' }}>Upload Photo</span>
+                      <span style={{ fontSize: 8, color: '#64748b' }}>300 × 300 px</span>
+                    </div>
+                  )}
+                </label>
+                <input
+                  id="tp-student-edit-photo"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleEditPhotoUpload}
+                  style={{ display: 'none' }}
+                />
+              </div>
+
               <div className="tp-form-grid">
                 <div className="tp-form-group tp-form-full">
-                  <label className="tp-form-label">Student Name</label>
-                  <input className="tp-form-input" value={editDraft.name} onChange={(e) => setEditDraft(prev => ({ ...prev, name: e.target.value }))} />
+                  <label className="tp-form-label">Student Name *</label>
+                  <input className="tp-form-input" value={editDraft.name} onChange={(e) => setEditDraft(prev => ({ ...prev, name: e.target.value }))} required />
+                </div>
+                <div className="tp-form-group">
+                  <label className="tp-form-label">Roll Number *</label>
+                  <input className="tp-form-input" value={editDraft.roll} onChange={(e) => setEditDraft(prev => ({ ...prev, roll: e.target.value }))} required />
+                </div>
+                <div className="tp-form-group">
+                  <label className="tp-form-label">Phone</label>
+                  <input className="tp-form-input" value={editDraft.phone} onChange={(e) => setEditDraft(prev => ({ ...prev, phone: e.target.value }))} />
+                </div>
+                <div className="tp-form-group">
+                  <label className="tp-form-label">Father's Name</label>
+                  <input className="tp-form-input" value={editDraft.fatherName} onChange={(e) => setEditDraft(prev => ({ ...prev, fatherName: e.target.value }))} />
+                </div>
+                <div className="tp-form-group">
+                  <label className="tp-form-label">Mother's Name</label>
+                  <input className="tp-form-input" value={editDraft.motherName} onChange={(e) => setEditDraft(prev => ({ ...prev, motherName: e.target.value }))} />
                 </div>
                 <div className="tp-form-group tp-form-full">
-                  <label className="tp-form-label">Roll Number</label>
-                  <input className="tp-form-input" value={editDraft.roll} onChange={(e) => setEditDraft(prev => ({ ...prev, roll: e.target.value }))} />
+                  <label className="tp-form-label">Date of Birth (Birthday)</label>
+                  <input className="tp-form-input" type="date" value={editDraft.dob} onChange={(e) => setEditDraft(prev => ({ ...prev, dob: e.target.value }))} />
                 </div>
               </div>
               <div className="tp-modal-footer">
                 <button type="button" className="tp-modal-cancel-btn" onClick={() => setEditingStudent(null)}>Cancel</button>
-                <button type="submit" className="tp-modal-submit-btn" style={{ background: classColor }}>Save</button>
+                <button type="submit" className="tp-modal-submit-btn" style={{ background: classColor }}>Save Changes</button>
               </div>
             </form>
           </div>
@@ -1126,7 +1294,7 @@ function StudentRoster({
    AddTeacherModal
    ────────────────────────────────────────── */
 function AddTeacherModal({ onClose, onAdd, themeColor }) {
-  const [form, setForm] = useState({ name: '', subject: '', email: '', phone: '' });
+  const [form, setForm] = useState({ name: '', subject: '', qualification: '', specializedComment: '', email: '', phone: '' });
   const [profilePicPreview, setProfilePicPreview] = useState(null);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -1171,6 +1339,8 @@ function AddTeacherModal({ onClose, onAdd, themeColor }) {
     onAdd({
       name: form.name.trim(),
       subject: form.subject.trim(),
+      qualification: form.qualification.trim(),
+      specializedComment: form.specializedComment.trim(),
       email: form.email.trim().toLowerCase(),
       phone: form.phone.trim(),
       profilePic: profilePicPreview,
@@ -1230,6 +1400,24 @@ function AddTeacherModal({ onClose, onAdd, themeColor }) {
             </div>
 
             <div className="tp-form-group">
+              <label className="tp-form-label">Last Educational Qualification <span style={{ fontWeight: 400, color: '#64748b', fontSize: 11.5 }}>(Optional)</span></label>
+              <input
+                className="tp-form-input"
+                type="text" placeholder="e.g. B.Sc in Math, B.Ed / M.A in English"
+                value={form.qualification} onChange={e => handleChange('qualification', e.target.value)}
+              />
+            </div>
+
+            <div className="tp-form-group tp-form-full">
+              <label className="tp-form-label">Specialized Comment <span style={{ fontWeight: 400, color: '#64748b', fontSize: 11.5 }}>(Optional)</span></label>
+              <input
+                className="tp-form-input"
+                type="text" placeholder="e.g. Senior Class Co-ordinator, Olympiad Trainer, IT Specialist"
+                value={form.specializedComment} onChange={e => handleChange('specializedComment', e.target.value)}
+              />
+            </div>
+
+            <div className="tp-form-group">
               <label className="tp-form-label">Email Address *</label>
               <input
                 className={`tp-form-input${errors.email ? ' tp-input-error' : ''}`}
@@ -1239,7 +1427,7 @@ function AddTeacherModal({ onClose, onAdd, themeColor }) {
               {errors.email && <span className="tp-form-error">{errors.email}</span>}
             </div>
 
-            <div className="tp-form-group tp-form-full">
+            <div className="tp-form-group">
               <label className="tp-form-label">Phone Number *</label>
               <input
                 className={`tp-form-input${errors.phone ? ' tp-input-error' : ''}`}
@@ -1821,6 +2009,16 @@ function TeacherRoster({ teachers, onAddTeacher, onDeleteTeachers, isReadOnly = 
                 )}
                 <div>
                   <p className="tp-detail-name" style={{ margin: 0 }}>{t.name}</p>
+                  {t.qualification && (
+                    <p style={{ fontSize: 11.5, color: '#059669', fontWeight: 600, margin: '2px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      🎓 {t.qualification}
+                    </p>
+                  )}
+                  {t.specializedComment && (
+                    <p style={{ fontSize: 11.5, color: '#4f46e5', fontWeight: 500, margin: '2px 0 0', display: 'flex', alignItems: 'center', gap: 4, fontStyle: 'italic' }}>
+                      💬 {t.specializedComment}
+                    </p>
+                  )}
                   <span className="tp-badge" style={{ background: themeColor, fontSize: 11, padding: '3px 8px', borderRadius: 6, display: 'inline-block', marginTop: 4 }}>
                     {t.subject}
                   </span>

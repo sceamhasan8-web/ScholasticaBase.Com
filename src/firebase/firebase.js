@@ -31,17 +31,15 @@ if (missingKeys.length > 0) {
 // Singleton guard: reuse existing app if already initialized (prevents Vite HMR re-init crash)
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-// Initialize Firestore — safe singleton pattern.
-// Using persistentLocalCache (single-tab) instead of persistentMultipleTabManager
-// which causes INTERNAL ASSERTION FAILED with Vite HMR hot-reloads.
+// Initialize Firestore with persistent offline IndexedDB cache enabled by default.
 let db;
 try {
-  // Try to get existing Firestore instance first (avoids double-init on HMR)
-  db = getFirestore(app);
-} catch {
   db = initializeFirestore(app, {
     localCache: persistentLocalCache(),
   });
+} catch {
+  // Safe fallback if Firestore was already initialized (e.g. during Vite HMR hot reload)
+  db = getFirestore(app);
 }
 export { db };
 

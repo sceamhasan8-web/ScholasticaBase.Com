@@ -416,7 +416,17 @@ export const getStoredResultsFromLocal = (schoolId) => {
     try {
         const key = schoolId ? `progga_stored_results_${schoolId}` : 'progga_stored_results';
         const raw = window.localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : [];
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+        const fallbackKey = `scholastic_schema_cache_results_${schoolId || 'default'}`;
+        const rawFallback = window.localStorage.getItem(fallbackKey);
+        if (rawFallback) {
+            const parsedFallback = JSON.parse(rawFallback);
+            if (Array.isArray(parsedFallback)) return parsedFallback;
+        }
+        return [];
     } catch {
         return [];
     }
@@ -608,11 +618,65 @@ export const saveExamSession = async (examSession, schoolId) => {
 
 export const deleteExamSession = (examId, schoolId) => deleteDocument(refs.exam(examId, schoolId));
 
+// Local Device Storage caching helpers for subscriptions
+const saveStorageCache = (key, data) => {
+    if (typeof window === 'undefined' || !key || data === undefined) return;
+    try {
+        if (data === null) {
+            window.localStorage.removeItem(`scholastic_schema_cache_${key}`);
+        } else {
+            window.localStorage.setItem(`scholastic_schema_cache_${key}`, JSON.stringify(data));
+        }
+    } catch {}
+};
+
+const loadStorageCache = (key) => {
+    if (typeof window === 'undefined' || !key) return null;
+    try {
+        const raw = window.localStorage.getItem(`scholastic_schema_cache_${key}`);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+};
+
+const createSyntheticDocSnap = (data) => ({
+    exists: () => !!data,
+    data: () => data || {},
+    id: data?.id || '',
+    _synthetic: true
+});
+
+const createSyntheticQuerySnap = (docsArray) => {
+    const docs = (docsArray || []).map(item => ({
+        id: item.id,
+        exists: () => true,
+        data: () => item
+    }));
+    return {
+        docs,
+        empty: docs.length === 0,
+        size: docs.length,
+        forEach: (cb) => docs.forEach(cb),
+        _synthetic: true
+    };
+};
+
 export const subscribeToExams = (onNext, onError, schoolId) => {
     let unsubDoc = null;
     let unsubAuth = null;
     let isCancelled = false;
     let retryTimer = null;
+
+    const cacheKey = `exams_${schoolId || 'default'}`;
+
+    // Instant hydration from device local cache
+    const cachedDocs = loadStorageCache(cacheKey);
+    if (cachedDocs && Array.isArray(cachedDocs) && typeof onNext === 'function') {
+        try {
+            onNext(createSyntheticQuerySnap(cachedDocs));
+        } catch {}
+    }
 
     const startListener = () => {
         if (isCancelled) return;
@@ -622,7 +686,11 @@ export const subscribeToExams = (onNext, onError, schoolId) => {
             unsubDoc = onSnapshot(
                 collection(db, collName),
                 (snapshot) => {
-                    if (!isCancelled && typeof onNext === 'function') onNext(snapshot);
+                    if (!isCancelled && typeof onNext === 'function') {
+                        const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                        saveStorageCache(cacheKey, items);
+                        onNext(snapshot);
+                    }
                 },
                 (err) => {
                     if (isCancelled) return;
@@ -666,6 +734,16 @@ export const subscribeToResults = (onNext, onError, schoolId) => {
     let isCancelled = false;
     let retryTimer = null;
 
+    const cacheKey = `results_${schoolId || 'default'}`;
+
+    // Instant hydration from device local cache
+    const cachedDocs = loadStorageCache(cacheKey);
+    if (cachedDocs && Array.isArray(cachedDocs) && typeof onNext === 'function') {
+        try {
+            onNext(createSyntheticQuerySnap(cachedDocs));
+        } catch {}
+    }
+
     const startListener = () => {
         if (isCancelled) return;
         try {
@@ -674,7 +752,11 @@ export const subscribeToResults = (onNext, onError, schoolId) => {
             unsubDoc = onSnapshot(
                 collection(db, collName),
                 (snapshot) => {
-                    if (!isCancelled && typeof onNext === 'function') onNext(snapshot);
+                    if (!isCancelled && typeof onNext === 'function') {
+                        const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                        saveStorageCache(cacheKey, items);
+                        onNext(snapshot);
+                    }
                 },
                 (err) => {
                     if (isCancelled) return;
@@ -717,6 +799,16 @@ export const subscribeToTeacherPanelData = (onNext, onError, schoolId) => {
     let isCancelled = false;
     let retryTimer = null;
 
+    const cacheKey = `teacherPanel_${schoolId || 'default'}`;
+
+    // Instant hydration from device local cache
+    const cachedDoc = loadStorageCache(cacheKey);
+    if (cachedDoc && typeof onNext === 'function') {
+        try {
+            onNext(createSyntheticDocSnap(cachedDoc));
+        } catch {}
+    }
+
     const startListener = () => {
         if (isCancelled) return;
         try {
@@ -724,7 +816,11 @@ export const subscribeToTeacherPanelData = (onNext, onError, schoolId) => {
             unsubDoc = onSnapshot(
                 refs.teacherPanel(schoolId),
                 (snapshot) => {
-                    if (!isCancelled && typeof onNext === 'function') onNext(snapshot);
+                    if (!isCancelled && typeof onNext === 'function') {
+                        const data = snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null;
+                        saveStorageCache(cacheKey, data);
+                        onNext(snapshot);
+                    }
                 },
                 (err) => {
                     if (isCancelled) return;

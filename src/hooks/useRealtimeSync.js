@@ -38,17 +38,54 @@ const normaliseSnapshot = (snapshot) => {
 };
 
 /**
+ * LocalStorage cache helper functions
+ */
+const getCacheKey = (ref, customKey) => {
+  if (customKey) return `scholastic_cache_${customKey}`;
+  if (ref?.path) return `scholastic_cache_${ref.path}`;
+  if (typeof ref === 'string') return `scholastic_cache_${ref}`;
+  return null;
+};
+
+const loadDeviceCache = (key) => {
+  if (!key || typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveDeviceCache = (key, data) => {
+  if (!key || typeof window === 'undefined' || data === undefined) return;
+  try {
+    if (data === null) {
+      window.localStorage.removeItem(key);
+    } else {
+      window.localStorage.setItem(key, JSON.stringify(data));
+    }
+  } catch {
+    // ignore storage quota errors gracefully
+  }
+};
+
+/**
  * @param {import('firebase/firestore').DocumentReference | import('firebase/firestore').CollectionReference | import('firebase/firestore').Query | null} ref
  *   Firestore ref to listen to. Pass null to skip (hook is a no-op while null).
- * @param {{ debounceMs?: number, onUpdate?: (data: any) => void }} [options]
+ * @param {{ debounceMs?: number, cacheKey?: string, onUpdate?: (data: any) => void }} [options]
  * @returns {{ data: any, loading: boolean, error: Error|null, isStale: boolean }}
  */
 export function useRealtimeSync(ref, options = {}) {
-  const { debounceMs = 50, onUpdate } = options;
+  const { debounceMs = 50, cacheKey: customCacheKey, onUpdate } = options;
+  const storageKey = getCacheKey(ref, customCacheKey);
+
+  // Initialize state using device local cache if available (0ms instant boot)
+  const initialCache = storageKey ? loadDeviceCache(storageKey) : null;
 
   const [state, setState] = useState({
-    data: null,
-    loading: ref !== null,
+    data: initialCache,
+    loading: ref !== null && initialCache === null,
     error: null,
     isStale: false,
   });
@@ -67,7 +104,14 @@ export function useRealtimeSync(ref, options = {}) {
 
     let mounted = true;
     let debounceTimer = null;
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+
+    // Check device cache on ref change
+    const cached = storageKey ? loadDeviceCache(storageKey) : null;
+    if (cached !== null) {
+      setState({ data: cached, loading: false, error: null, isStale: false });
+    } else {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+    }
 
     const unsubscribe = onSnapshot(
       ref,
@@ -76,6 +120,11 @@ export function useRealtimeSync(ref, options = {}) {
         if (!mounted) return;
 
         const data = normaliseSnapshot(snapshot);
+
+        // Auto-persist snapshot updates into device local storage cache
+        if (storageKey) {
+          saveDeviceCache(storageKey, data);
+        }
 
         // Debounce: clear any pending update before scheduling a new one
         clearTimeout(debounceTimer);
@@ -98,8 +147,8 @@ export function useRealtimeSync(ref, options = {}) {
           err?.code === 'PERMISSION_DENIED';
 
         if (isPermissionError) {
-          // Non-fatal: mark data as stale but don't throw away existing data
-          console.warn('[useRealtimeSync] Permission denied — listener paused. Using cached data.', err.message);
+          // Non-fatal: mark data as stale but serve device cached data
+          console.warn('[useRealtimeSync] Permission denied — listener paused. Serving cached device data.', err.message);
           setState((prev) => ({ ...prev, loading: false, isStale: true, error: err }));
         } else {
           console.error('[useRealtimeSync] Listener error:', err);
@@ -114,7 +163,7 @@ export function useRealtimeSync(ref, options = {}) {
       unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ref?.path ?? ref]);
+  }, [ref?.path ?? ref, storageKey]);
 
   return state;
 }

@@ -123,8 +123,41 @@ export function RealtimeSyncProvider({ children }) {
   // Only admins need the users-collection listener.
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const [liveUserAccount, setLiveUserAccount] = useState(null);
-  const [liveSchoolProfile, setLiveSchoolProfile] = useState(null);
+  // Device storage cache helpers
+  const getCachedProfile = () => {
+    try {
+      const raw = window.localStorage.getItem('scholastic_cached_school_profile');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const setCachedProfile = (data) => {
+    try {
+      if (data) window.localStorage.setItem('scholastic_cached_school_profile', JSON.stringify(data));
+    } catch {}
+  };
+
+  const getCachedUserAccount = (userId) => {
+    if (!userId) return null;
+    try {
+      const raw = window.localStorage.getItem(`scholastic_cached_user_${userId}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const setCachedUserAccount = (userId, data) => {
+    if (!userId) return;
+    try {
+      if (data) window.localStorage.setItem(`scholastic_cached_user_${userId}`, JSON.stringify(data));
+    } catch {}
+  };
+
+  const [liveUserAccount, setLiveUserAccount] = useState(() => getCachedUserAccount(activeUserId));
+  const [liveSchoolProfile, setLiveSchoolProfile] = useState(() => getCachedProfile());
   // Increments each time the users collection changes — consumers watch this
   // to know when to re-load the accounts list.
   const [liveUsersVersion, setLiveUsersVersion] = useState(0);
@@ -163,6 +196,12 @@ export function RealtimeSyncProvider({ children }) {
       return;
     }
 
+    // Hydrate instantly from device cache
+    const initialCachedUser = getCachedUserAccount(activeUserId);
+    if (initialCachedUser) {
+      setLiveUserAccount(initialCachedUser);
+    }
+
     const userDocRef = doc(db, COLLECTIONS.users, String(activeUserId).trim());
     setUserSyncStatus(SYNC_STATUS.CONNECTING);
 
@@ -181,6 +220,7 @@ export function RealtimeSyncProvider({ children }) {
         }
         const data = snapToData(snap);
         setLiveUserAccount(data);
+        setCachedUserAccount(activeUserId, data);
         setUserSyncStatus(
           snap.metadata.fromCache ? SYNC_STATUS.CACHED : SYNC_STATUS.LIVE
         );
@@ -195,21 +235,24 @@ export function RealtimeSyncProvider({ children }) {
           console.warn('[RealtimeSyncContext] User account listener note:', err?.message || err);
           setUserSyncStatus(SYNC_STATUS.ERROR);
         }
-        setLiveUserAccount(null);
       }
     );
 
     return () => {
       mounted = false;
       unsubscribe();
-      setLiveUserAccount(null);
-      setUserSyncStatus(SYNC_STATUS.IDLE);
     };
   }, [activeUserId]);
 
   // ── Listener 2: School Profile Document ────────────────────────────────────
   useEffect(() => {
     if (!db) return;
+
+    // Hydrate instantly from device cache
+    const cachedProf = getCachedProfile();
+    if (cachedProf) {
+      setLiveSchoolProfile(cachedProf);
+    }
 
     const profileDocRef = doc(db, COLLECTIONS.schoolData, SCHOOL_PROFILE_DOC_ID);
     setProfileSyncStatus(SYNC_STATUS.CONNECTING);
@@ -224,7 +267,10 @@ export function RealtimeSyncProvider({ children }) {
         (snap) => {
           if (!mounted) return;
           const data = snapToData(snap);
-          setLiveSchoolProfile(data);
+          if (data) {
+            setLiveSchoolProfile(data);
+            setCachedProfile(data);
+          }
           setProfileSyncStatus(
             snap.metadata.fromCache ? SYNC_STATUS.CACHED : SYNC_STATUS.LIVE
           );
@@ -238,7 +284,6 @@ export function RealtimeSyncProvider({ children }) {
             console.warn('[RealtimeSyncContext] School profile listener note:', err?.message || err);
             setProfileSyncStatus(SYNC_STATUS.ERROR);
           }
-          setLiveSchoolProfile(null);
         }
       );
     } catch (initErr) {

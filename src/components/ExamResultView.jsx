@@ -188,7 +188,7 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
     { id: `${Date.now()}-1`, subject: DEFAULT_SUBJECTS[0], cqMarks: '', mcqMarks: '' },
   ]);
   const [enteredResults, setEnteredResults] = useState([]);
-  const [firestoreResults, setFirestoreResults] = useState([]);
+  const [firestoreResults, setFirestoreResults] = useState(() => getStoredResultsFromLocal(activeSchoolId));
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedResultKeys, setSelectedResultKeys] = useState([]);
   const [deletedResultKeys, setDeletedResultKeys] = useState([]);
@@ -423,14 +423,26 @@ export default function ExamResultView({ classes = [], defaultToEntry = false, r
           saveStoredExamSessions(freshExams, activeSchoolId);
         }
 
-        if (Array.isArray(remoteData?.storedResults)) {
-          setFirestoreResults(remoteData.storedResults);
-          try {
-            const key = activeSchoolId ? `progga_stored_results_${activeSchoolId}` : 'progga_stored_results';
-            if (typeof window !== 'undefined' && window.localStorage) {
-              window.localStorage.setItem(key, JSON.stringify(remoteData.storedResults));
-            }
-          } catch { }
+        if (Array.isArray(remoteData?.storedResults) && remoteData.storedResults.length > 0) {
+          setFirestoreResults((prev) => {
+            const map = new Map();
+            (prev || []).forEach((r) => {
+              const k = r?.key || r?.id || r?.resultId;
+              if (k) map.set(k, r);
+            });
+            remoteData.storedResults.forEach((r) => {
+              const k = r?.key || r?.id || r?.resultId;
+              if (k) map.set(k, r);
+            });
+            const merged = Array.from(map.values());
+            try {
+              const key = activeSchoolId ? `progga_stored_results_${activeSchoolId}` : 'progga_stored_results';
+              if (typeof window !== 'undefined' && window.localStorage) {
+                window.localStorage.setItem(key, JSON.stringify(merged));
+              }
+            } catch { }
+            return merged;
+          });
         }
       },
       () => { },
