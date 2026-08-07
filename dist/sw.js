@@ -17,6 +17,9 @@ const CACHE_NAME = 'scholasticbase-assets-v2';
 
 // Static assets to pre-cache on install
 const PRECACHE_ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.json',
   '/manifest.webmanifest',
   '/appicon.png',
 ];
